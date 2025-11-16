@@ -257,6 +257,397 @@
     border: 1px solid var(--accent-color);
 }
 
+/* ===== SESSION DETAIL MODAL STYLES ===== */
+.session-detail-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: var(--z-modal);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-md);
+    overflow-y: auto;
+}
+
+.session-detail-modal-content {
+    background: var(--bg-primary);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    max-width: 800px;
+    width: 100%;
+    max-height: 85vh; /* Reduced from 90vh to prevent overflow */
+    box-shadow: var(--shadow-lg);
+    border: 2px solid var(--border-color);
+    animation: modalSlideIn 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
+    margin: auto; /* Center vertically */
+}
+
+.session-detail-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.session-detail-modal-title {
+    flex: 1;
+    margin-right: var(--space-md);
+}
+
+.session-detail-modal-title h2 {
+    color: var(--text-primary);
+    font-size: var(--font-size-lg); /* Smaller than main page */
+    margin-bottom: var(--space-xs);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.session-detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.session-detail-date,
+.session-detail-score {
+    color: var(--text-secondary);
+    font-size: var(--font-size-md); /* Smaller font */
+    font-weight: 500;
+}
+
+.session-detail-score {
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.session-detail-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.session-detail-modal-close:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+}
+
+.session-detail-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: var(--space-lg);
+    min-height: 0; /* Important for flex scrolling */
+}
+
+.session-questions-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.session-question {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    border: 1px solid var(--border-color);
+}
+
+.session-question-text {
+    font-size: var(--font-size-lg); /* Smaller font */
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+    line-height: 1.4;
+}
+
+.session-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.session-option {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    font-size: var(--font-size-md); /* Smaller font */
+    line-height: 1.4;
+    position: relative;
+}
+
+.session-option.correct {
+    background: var(--success-bg);
+    border-color: var(--success-border);
+    color: var(--text-primary);
+}
+
+.session-option.incorrect {
+    background: var(--error-bg);
+    border-color: var(--error-border);
+    color: var(--text-primary);
+}
+
+.answer-indicator {
+    font-size: var(--font-size-xs); /* Smaller font */
+    font-weight: 600;
+    margin-left: var(--space-sm);
+    opacity: 0.9;
+}
+
+.session-option.correct .answer-indicator {
+    color: var(--text-secondary);
+}
+
+.session-option.incorrect .answer-indicator {
+    color: var(--text-secondary);
+}
+
+.session-modal-footer {
+    display: flex;
+    justify-content: space-between; /* Side by side */
+    align-items: center;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0; /* Prevent footer from shrinking */
+}
+
+/* .modal-btn.close-btn,
+.modal-btn.delete-btn {
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px; 
+    flex: 1; 
+    text-align: center;
+} */
+
+.modal-btn.close-btn {
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 100px;
+}
+
+.modal-btn.close-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.modal-btn.delete-btn {
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 140px;
+}
+
+.modal-btn.delete-btn:hover:not(:disabled) {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.modal-btn.delete-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Loading and empty states */
+.question-placeholder,
+.no-questions-message {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-muted);
+    font-size: var(--font-size-base);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--border-color);
+}
+
+.error-message {
+    text-align: center;
+    padding: var(--space-lg);
+    color: var(--danger-color);
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-base);
+}
+
+.error-message p {
+    margin-bottom: var(--space-md);
+}
+
+/* Responsive Design - Mobile */
+@media (max-width: 767px) {
+    .session-modal {
+        padding: var(--space-sm);
+        align-items: center;
+    }
+    
+    .session-modal-content {
+        padding: var(--space-lg);
+        max-height: 85vh;
+        margin: auto;
+    }
+    
+    .session-modal-header {
+        flex-direction: column;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+    }
+    
+    .session-detail-modal-title {
+        margin-right: 0;
+    }
+    
+    .session-detail-modal-title h2 {
+        font-size: var(--font-size-md); /* Even smaller on mobile */
+    }
+    
+    .session-detail-date,
+    .session-detail-score {
+        font-size: var(--font-size-sm); /* Even smaller on mobile */
+    }
+    
+    .session-question-text {
+        font-size: var(--font-size-md); /* Even smaller on mobile */
+    }
+    
+    .session-option {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: var(--font-size-md); /* Even smaller on mobile */
+    }
+    
+    .modal-btn.close-btn,
+    .modal-btn.delete-btn {
+        font-size: var(--font-size-xs);
+        padding: var(--space-sm);
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .session-detail-modal-content {
+        padding: var(--space-lg);
+        max-width: 90vw;
+        max-height: 85vh;
+    }
+    
+    .session-detail-modal-title h2 {
+        font-size: var(--font-size-lg);
+    }
+    
+    .session-question-text {
+        font-size: var(--font-size-base);
+    }
+}
+
+/* Desktop improvements */
+@media (min-width: 1024px) {
+    .session-detail-modal-content {
+        max-height: 80vh; /* More conservative height for desktop */
+    }
+}
+
+/* Very small screens */
+@media (max-width: 360px) {
+    .session-detail-modal-content {
+        padding: var(--space-md);
+    }
+    
+    .session-detail-modal-title h2 {
+        font-size: var(--font-size-sm);
+    }
+    
+    .session-question-text {
+        font-size: var(--font-size-xs);
+    }
+    
+    .modal-btn.close-btn,
+    .modal-btn.delete-btn {
+        font-size: var(--font-size-xs);
+        padding: var(--space-xs) var(--space-sm);
+    }
+}
+
+/* Animation */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Focus states for accessibility */
+.session-detail-modal-close:focus,
+.modal-btn.close-btn:focus,
+.modal-btn.delete-btn:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Scrollbar styling for modal body */
+.session-detail-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.session-detail-modal-body::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.session-detail-modal-body::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.session-detail-modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Prevent body scroll when modal is open */
+body.session-modal-open {
+    overflow: hidden;
+}
+
 /* ==== Success Modal Styles ===== */
 .success-modal {
   position: fixed;

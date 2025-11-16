@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/contact.css') }}">
+{% endblock %}
+
 {% block content %}
 <section class="main-body contact-section">
   <header>
     <h1>📩 Contact</h1>
-    <p class="tagline">Love the app or spotted an issue? Share your thoughts — we’ll respond to your email.</p>
+    <p class="tagline">Love the app or spotted an issue? Share your thoughts — we'll respond to your email.</p>
   </header>
 
   <form id="contact-form" class="contact-form" novalidate>
@@ -42,4 +46,3 @@
   </form>
 </section>
 {% endblock %}
-

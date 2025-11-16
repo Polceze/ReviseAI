@@ -122,12 +122,6 @@
   padding: 3px 8px;
 }
 
-/* Desktop sidebar tier styling */
-.sidebar-upgrade .sidebar-link {
-  position: relative;
-  overflow: hidden;
-}
-
 .sidebar-upgrade .tier-pill {
   margin-left: auto;
   font-size: var(--font-size-xs);
@@ -372,12 +366,13 @@
   width: 230px;
   background: var(--bg-primary);
   z-index: var(--z-fixed);
-  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.3s ease;
 }
 
 /* When topbar is present, adjust sidebar top position */
 body.has-topbar .desktop-sidebar {
-  top: 100px;
+  top: 75px;
 }
 
 body.has-topbar .auth-topbar {
@@ -400,15 +395,32 @@ body.has-topbar .auth-topbar {
   padding: var(--space-lg) 0;
 }
 
+/* Upgrade link specific styles */
+.upgrade-link {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  color: #1e293b;
+  font-weight: 700;
+  margin: var(--space-md);
+  border-radius: var(--radius-md);
+  border-left: 3px solid transparent !important;
+}
+
+.upgrade-link:hover {
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
 .sidebar-upgrade {
   margin-bottom: var(--space-md);
 }
 
 .sidebar-upgrade .sidebar-link {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
-  
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
   border-radius: var(--radius-lg);
+  color: white; 
+  position: relative;
+  overflow: hidden;
 }
 
 .sidebar-item {
@@ -419,12 +431,15 @@ body.has-topbar .auth-topbar {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-md) var(--space-sm);
+  margin: var(--space-xs) var(--space-sm);
   color: var(--text-primary);
   text-decoration: none;
   transition: all 0.2s ease;
   border-left: 3px solid transparent;
   border-radius: var(--radius-lg);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .sidebar-link:hover,
@@ -434,14 +449,81 @@ body.has-topbar .auth-topbar {
   color: var(--primary-color);
 }
 
+.nav-icon {
+  font-size: 1.2rem;
+  margin-right: var(--space-md);
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+  transition: margin-right 0.3s ease;
+}
+
 .sidebar-link .nav-icon {
   font-size: var(--font-size-lg);
   width: 24px;
   text-align: center;
 }
 
+.sidebar-link-text {
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  white-space: nowrap;
+}
+
+/* Collapsed state adjustments */
+.desktop-sidebar:not(.expanded) {
+  width: 60px;
+}
+
+.desktop-sidebar:not(.expanded) .sidebar-link {
+  padding: var(--space-md) var(--space-sm);
+  justify-content: center;
+}
+
+.desktop-sidebar:not(.expanded) .nav-icon {
+  margin-right: 0;
+}
+
+.desktop-sidebar:not(.expanded) .sidebar-link-text {
+  opacity: 0;
+  visibility: hidden;
+  width: 0;
+}
+
+.desktop-sidebar:not(.expanded) .upgrade-link {
+  margin: var(--space-xs) var(--space-sm);
+  padding: var(--space-md) var(--space-sm);
+}
+
+/* Overlay for click outside */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-fixed);
+  overflow-x: hidden;
+  transition: width 0.3s ease;
+  display: none !important; /* Completely remove overlay */
+}
+
+
+
+body.sidebar-expanded {
+  overflow: auto;
+}
+
+@media (min-width: 1200px) {
+  body.sidebar-expanded {
+    overflow: auto;
+  }
+}
+
 /* Main content adjustment for sidebar */
 .main-content-wrapper {
+  position: relative;
+  z-index: 1;
   transition: margin-left 0.3s ease;
 }
 
@@ -491,8 +573,6 @@ body.has-topbar .auth-topbar {
   align-items: center;
   gap: var(--space-md);
 }
-
-
 
 .desktop-content {
   display: flex;
@@ -581,5 +661,34 @@ body.has-topbar .auth-topbar {
   
   .mobile-logout-btn:active {
     transform: translateY(0) scale(0.98);
+  }
+}
+
+/* Prevent navigation when sidebar is collapsed */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .desktop-sidebar:not(.expanded) .sidebar-link {
+    pointer-events: none; /* Disable clicks in collapsed state */
+  }
+  
+  .desktop-sidebar.expanded .sidebar-link {
+    pointer-events: auto; /* Re-enable clicks when expanded */
+  }
+  
+  /* Visual indicator that collapsed state is not clickable */
+  .desktop-sidebar:not(.expanded) .sidebar-link {
+    cursor: pointer; /* Still show pointer to indicate interactivity */
+    opacity: 0.8;
+  }
+  
+  .desktop-sidebar:not(.expanded) .sidebar-link:hover {
+    opacity: 1;
+    background: var(--bg-primary);
+  }
+}
+
+/* Large desktop - always clickable */
+@media (min-width: 1200px) {
+  .desktop-sidebar .sidebar-link {
+    pointer-events: auto !important;
   }
 }

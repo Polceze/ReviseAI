@@ -72,9 +72,9 @@
                         <span class="nav-icon">📚</span>
                         My Sessions
                     </a>
-                    <a href="/upgrade" class="mobile-nav-link {% if request.path == '/upgrade' %}active{% endif %}">
+                    <a href="/donate" class="mobile-nav-link {% if request.path == '/donate' %}active{% endif %}">
                         <span class="nav-icon">⭐</span>
-                        Upgrade
+                        Donate
                     </a>
                     <a href="/contact" class="mobile-nav-link {% if request.path == '/contact' %}active{% endif %}">
                         <span class="nav-icon">📩</span>
@@ -90,39 +90,35 @@
 
         <!-- Desktop Sidebar -->
         <nav class="sidebar desktop-sidebar" id="desktop-sidebar">
-            <!-- <div class="sidebar-header">
-                <img src="{{ url_for('static', filename='images/Logo1.png') }}" alt="ReviseAI" class="sidebar-logo">
-            </div> -->
-            
             <ul class="sidebar-nav">
                 <li class="sidebar-upgrade">
-                    <a href="/upgrade" class="sidebar-link upgrade-link">
-                        <span class="nav-icon">⭐</span>
-                        Upgrade
+                    <a href="/donate" class="sidebar-link upgrade-link">
+                        <span class="nav-icon">❤️</span>
+                        <span class="sidebar-link-text">Donate</span>
                     </a>
                 </li>
                 <li class="sidebar-item">
                     <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
                         <span class="nav-icon">🏠</span>
-                        Home
+                        <span class="sidebar-link-text">Home</span>
                     </a>
                 </li>
                 <li class="sidebar-item">
                     <a href="/analytics" class="sidebar-link {% if request.path == '/analytics' %}active{% endif %}">
                         <span class="nav-icon">📊</span>
-                        Analytics
+                        <span class="sidebar-link-text">Analytics</span>
                     </a>
                 </li>
                 <li class="sidebar-item">
                     <a href="/sessions" class="sidebar-link {% if request.path == '/sessions' %}active{% endif %}">
                         <span class="nav-icon">📚</span>
-                        My Sessions
+                        <span class="sidebar-link-text">My Sessions</span>
                     </a>
                 </li>
                 <li class="sidebar-item">
                     <a href="/contact" class="sidebar-link {% if request.path == '/contact' %}active{% endif %}">
                         <span class="nav-icon">📩</span>
-                        Contact
+                        <span class="sidebar-link-text">Contact</span>
                     </a>
                 </li>
             </ul>
@@ -143,7 +139,7 @@
                                 <span class="sessions-remaining" id="sessions-remaining">Sessions remaining: Loading...</span>
                                 <span class="resets-in" id="resets-in">Resets in: Loading...</span>
                             </div>
-                            <button class="upgrade-btn" id="upgrade-page-btn" style="display: none;">Upgrade</button>
+                            <button class="upgrade-btn" id="upgrade-page-btn" style="display: none;">Donate</button>
                         </div>
                         <div class="mobile-menu-toggle" id="old-mobile-menu-toggle">
                             <span></span>

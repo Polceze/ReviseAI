@@ -194,7 +194,6 @@
   .control-group label {
     margin-bottom: var(--space-xs);
   }
-
 }
 
 /* Tablet Styles (768px+) */
@@ -309,6 +308,10 @@
     font-size: var(--font-size-sm);
     padding: var(--space-sm) var(--space-md);
   }
+
+  .analytics-controls {
+    padding: var(--space-sm) var(--space-lg);
+}
   
   .stats-summary {
     grid-template-columns: 1fr;

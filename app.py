@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask_mail import Mail, Message
 import os
 from dotenv import load_dotenv
 from models import Database
@@ -10,9 +11,17 @@ from cachetools import TTLCache
 
 
 load_dotenv()
-
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
+
+# Configure Flask-Mail
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', True)
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', app.config['MAIL_USERNAME'])
+mail = Mail(app)
 
 # Initialize database
 db = Database()
@@ -52,6 +61,75 @@ def invalidate_user_cache(user_id):
     except Exception:
         pass
 
+def check_daily_session_limit(user_id):
+    """Check if user has exceeded daily session limit (10 sessions per day)"""
+    try:
+        connection = db.get_connection()
+        if not connection:
+            return {"allowed": True, "remaining": 10, "limit": 10, "reset_in": "midnight", "period": "daily", "sessions_used_today": 0}
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Get user's session count for today using last_session_date
+        cursor.execute("""
+            SELECT 
+                sessions_used_today, 
+                last_session_date,
+                CURDATE() as today,
+                DATE(last_session_date) as last_date_formatted
+            FROM users 
+            WHERE id = %s
+        """, (user_id,))
+        
+        user_data = cursor.fetchone()
+        
+        if not user_data:
+            return {"allowed": True, "remaining": 10, "limit": 10, "reset_in": "midnight", "period": "daily", "sessions_used_today": 0}
+        
+        sessions_used_today = user_data['sessions_used_today'] or 0
+        last_session_date = user_data['last_session_date']
+        today = user_data['today']
+        last_date_formatted = user_data['last_date_formatted']
+        
+        # Reset counter if it's a new day (midnight reset)
+        needs_reset = False
+        if last_session_date is None:
+            needs_reset = True
+        else:
+            # Compare dates directly
+            if last_date_formatted != today:
+                needs_reset = True
+        
+        if needs_reset:
+            sessions_used_today = 0
+            cursor.execute("""
+                UPDATE users 
+                SET sessions_used_today = 0, last_session_date = CURDATE()
+                WHERE id = %s
+            """, (user_id,))
+            connection.commit()
+        
+        remaining_sessions = max(0, 10 - sessions_used_today)
+        allowed = sessions_used_today < 10
+        
+        return {
+            "allowed": allowed,
+            "remaining": remaining_sessions,
+            "limit": 10,
+            "reset_in": "midnight",  # Simplified message
+            "period": "daily",
+            "sessions_used_today": sessions_used_today
+        }
+        
+    except Exception as e:
+        print(f"Error checking daily session limit: {e}")
+        return {"allowed": True, "remaining": 10, "limit": 10, "reset_in": "midnight", "period": "daily", "sessions_used_today": 0}
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 def balance_correct_answers(questions):
     """
     Ensure correct answers are distributed across different positions (A, B, C, D)
@@ -63,166 +141,216 @@ def balance_correct_answers(questions):
     positions = [0, 1, 2, 3]  # A, B, C, D
     position_count = {0: 0, 1: 0, 2: 0, 3: 0}
     
-    # Count current distribution
+    # Count current distribution and validate questions
+    valid_questions = []
     for q in questions:
-        pos = q['correctAnswer']
-        if pos in position_count:
-            position_count[pos] += 1
+        # Skip questions with invalid options or correctAnswer
+        options = q.get('options', [])
+        correct_answer = q.get('correctAnswer')
+        
+        if (not options or 
+            correct_answer is None or 
+            correct_answer >= len(options) or 
+            correct_answer < 0 or
+            len(options) < 2):  # At least 2 options needed
+            print(f"⚠️ Skipping invalid question: {len(options)} options, correctAnswer: {correct_answer}")
+            valid_questions.append(q)  # Keep invalid questions as-is
+            continue
+            
+        valid_questions.append(q)
+        if correct_answer in position_count:
+            position_count[correct_answer] += 1
+    
+    # If we filtered out questions, use the valid ones
+    if len(valid_questions) != len(questions):
+        print(f"⚠️ Filtered {len(questions) - len(valid_questions)} invalid questions")
+        questions = valid_questions
     
     # Check if we need to rebalance (if any position has more than its fair share)
     max_allowed = (len(questions) // 4) + 1
     needs_rebalancing = any(count > max_allowed for count in position_count.values())
     
     if not needs_rebalancing:
-        return questions  # Distribution is already good
+        print("✅ Distribution is already balanced")
+        return questions
     
     print(f"📊 Rebalancing answer positions. Current distribution: A={position_count[0]}, B={position_count[1]}, C={position_count[2]}, D={position_count[3]}")
     
-    # STRATEGY 1: Try to balance by processing questions in random order
+    # STRATEGY: Try to balance by processing questions
     import random
     question_indices = list(range(len(questions)))
-    random.shuffle(question_indices)  # Process questions in random order
+    random.shuffle(question_indices)
     
-    # STRATEGY 2: Create a target distribution
+    # Target distribution
     target_distribution = {}
     total_questions = len(questions)
     base_count = total_questions // 4
     remainder = total_questions % 4
     
-    # Distribute questions evenly among positions
     for i, pos in enumerate(positions):
         target_distribution[pos] = base_count + (1 if i < remainder else 0)
     
     print(f"🎯 Target distribution: A={target_distribution[0]}, B={target_distribution[1]}, C={target_distribution[2]}, D={target_distribution[3]}")
     
-    # STRATEGY 3: Smart rebalancing with multiple passes
+    # Safe rebalancing
     rebalanced_count = 0
     
-    # First pass: Fix severely overused positions
     for i in question_indices:
         q = questions[i]
-        current_pos = q['correctAnswer']
+        current_pos = q.get('correctAnswer')
+        options = q.get('options', [])
+        
+        # Skip if invalid
+        if (current_pos is None or 
+            current_pos >= len(options) or 
+            len(options) < 2):
+            continue
         
         # Only rebalance if this position is over target
-        if position_count[current_pos] > target_distribution[current_pos]:
-            # Find positions that are under target, prioritizing least used
+        if current_pos in position_count and position_count[current_pos] > target_distribution[current_pos]:
+            # Find positions that are under target
             underused_positions = [
                 pos for pos in positions 
-                if position_count[pos] < target_distribution[pos]
+                if (position_count.get(pos, 0) < target_distribution.get(pos, 0) and
+                    pos < len(options))  # Ensure the position exists in options
             ]
             
             if underused_positions:
                 # Choose the most underused position
-                new_pos = min(underused_positions, key=lambda p: position_count[p])
+                new_pos = min(underused_positions, key=lambda p: position_count.get(p, 0))
                 
-                # Swap the correct answer with the new position
-                correct_text = q['options'][current_pos]
-                other_text = q['options'][new_pos]
-                
-                q['options'][current_pos] = other_text
-                q['options'][new_pos] = correct_text
-                q['correctAnswer'] = new_pos
-                
-                position_count[current_pos] -= 1
-                position_count[new_pos] += 1
-                rebalanced_count += 1
-                print(f"🔄 Swapped Q{i+1} from position {current_pos} to {new_pos}")
-                
-                # Early exit if we've achieved good distribution
-                if all(position_count[pos] <= target_distribution[pos] for pos in positions):
-                    break
-    
-    # STRATEGY 4: If still unbalanced, do a second pass with different logic
-    if any(position_count[pos] > target_distribution[pos] for pos in positions):
-        print("🔁 Second pass needed for fine-tuning")
-        
-        # Process in reverse order this time
-        for i in reversed(question_indices):
-            q = questions[i]
-            current_pos = q['correctAnswer']
-            
-            # If this position is still overused
-            if position_count[current_pos] > target_distribution[current_pos]:
-                # Find any position that's underused
-                for new_pos in positions:
-                    if (new_pos != current_pos and 
-                        position_count[new_pos] < target_distribution[new_pos]):
-                        
-                        # Swap
-                        correct_text = q['options'][current_pos]
-                        other_text = q['options'][new_pos]
-                        
-                        q['options'][current_pos] = other_text
-                        q['options'][new_pos] = correct_text
-                        q['correctAnswer'] = new_pos
-                        
-                        position_count[current_pos] -= 1
-                        position_count[new_pos] += 1
-                        rebalanced_count += 1
-                        print(f"🔄 Second pass: Swapped Q{i+1} from {current_pos} to {new_pos}")
+                # SAFE SWAP: Only swap if both positions exist in options
+                if (current_pos < len(options) and 
+                    new_pos < len(options) and 
+                    current_pos != new_pos):
+                    
+                    # Swap the correct answer with the new position
+                    correct_text = options[current_pos]
+                    other_text = options[new_pos]
+                    
+                    q['options'][current_pos] = other_text
+                    q['options'][new_pos] = correct_text
+                    q['correctAnswer'] = new_pos
+                    
+                    position_count[current_pos] -= 1
+                    position_count[new_pos] = position_count.get(new_pos, 0) + 1
+                    rebalanced_count += 1
+                    print(f"🔄 Swapped Q{i+1} from position {current_pos} to {new_pos}")
+                    
+                    # Early exit if we've achieved good distribution
+                    if all(position_count.get(pos, 0) <= target_distribution.get(pos, 0) for pos in positions):
                         break
     
     print(f"✅ Balanced {rebalanced_count} questions. Final distribution: A={position_count[0]}, B={position_count[1]}, C={position_count[2]}, D={position_count[3]}")
     return questions
 
-def generate_questions_with_gemini(notes, num_questions=6, question_type="mcq", difficulty="normal"):
+def generate_questions_with_claude(notes, num_questions=6, question_type="mcq", difficulty="normal"):
     """
-    Generate quiz questions using Google Gemini API with performance optimizations.
+    Generate quiz questions using Anthropic Claude API.
     """
-    api_key = os.environ.get('GEMINI_API_KEY')
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
-        print("❌ No Gemini API key found")
+        print("❌ No Anthropic API key found")
         return None, "no_api_key"
     
-    # ✅ OPTIMIZED: Use a single reliable model
-    PRIMARY_MODEL = 'gemini-2.0-flash-001'  # Fastest model
-    FALLBACK_MODEL = 'gemini-pro'  # Single fallback
-    
-    # ✅ OPTIMIZED: Streamline prompt construction
-    prompt = build_optimized_prompt(notes, num_questions, question_type, difficulty)
-    
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
+        import anthropic
         
-        models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL]
+        client = anthropic.Anthropic(api_key=api_key)
         
-        for model_name in models_to_try:
-            print(f"🔄 Attempting with model: {model_name}")
+        # Build optimized prompt for Claude
+        prompt = build_claude_prompt(notes, num_questions, question_type, difficulty)
+        
+        print(f"🔄 Calling Claude API with {len(notes)} characters of notes...")
+        
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=2000,
+            temperature=0.8,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+        
+        if response and response.content:
+            response_text = response.content[0].text
+            print("✅ Claude API call successful!")
+            return process_api_response(response_text, num_questions, question_type, difficulty)
+        else:
+            print("❌ Claude API returned empty response")
+            return None, "empty_response"
             
-            try:
-                # ✅ CORRECTED: Remove timeout from generation_config
-                model = genai.GenerativeModel(
-                    model_name=model_name,
-                    generation_config={
-                        "temperature": 0.8,
-                        "max_output_tokens": 1500,  # Reduced for faster response
-                    }
-                )
-                
-                # ✅ CORRECTED: Timeout only in request_options
-                response = model.generate_content(
-                    prompt, 
-                    request_options={"timeout": 10}  # 10-second timeout
-                )
-                
-                if response and response.text:
-                    print("✅ API call successful!")
-                    return process_api_response(response.text, num_questions, question_type, difficulty)
-                    
-            except Exception as e:
-                print(f"❌ Model {model_name} failed: {str(e)}")
-                if "quota" in str(e).lower():
-                    return None, "quota_exceeded"
-                continue
-                
+    except anthropic.APIConnectionError as e:
+        print(f"❌ Claude API connection error: {str(e)}")
         return None, "api_error"
-                
+    except anthropic.RateLimitError as e:
+        print(f"❌ Claude API rate limit exceeded: {str(e)}")
+        return None, "quota_exceeded"
+    except anthropic.APIStatusError as e:
+        print(f"❌ Claude API status error: {e.status_code} - {str(e)}")
+        if e.status_code == 401:
+            return None, "auth_error"
+        return None, "api_error"
     except ImportError:
+        print("❌ Anthropic module not installed")
         return None, "module_missing"
     except Exception as e:
-        print(f"❌ Unexpected error: {str(e)}")
+        print(f"❌ Claude API error: {str(e)}")
         return None, "api_error"
+
+def build_claude_prompt(notes, num_questions, question_type, difficulty):
+    """Build optimized prompt for Claude with clear question type instructions"""
+    truncated_notes = notes[:1500]
+    
+    # More specific instructions for each question type
+    type_instructions = {
+        "mcq": f"""Generate exactly {num_questions} multiple-choice questions. Each question must have exactly 4 options (A, B, C, D).
+- Use meaningful, distinct options
+- Avoid "All of the above" or "None of the above" unless absolutely necessary
+- Ensure only one correct answer per question""",
+        
+        "tf": f"""Generate exactly {num_questions} True/False questions. Each question must have exactly 2 options: ["True", "False"].
+- Questions should be clear factual statements that can be definitively true or false
+- Use the exact options: "True" and "False" (capitalized)"""
+    }
+    
+    difficulty_instructions = {
+        "normal": "Focus on factual recall and basic understanding from the notes.",
+        "difficult": "Test deeper understanding, analysis, and application of concepts from the notes."
+    }
+    
+    return f"""Create a quiz based on these study notes. Follow these instructions carefully:
+
+{type_instructions.get(question_type, type_instructions['mcq'])}
+
+{difficulty_instructions.get(difficulty, difficulty_instructions['normal'])}
+
+CRITICAL: All questions must be of the same type ({question_type.upper()}).
+- For MCQ: All questions must have exactly 4 options
+- For True/False: All questions must have exactly 2 options: "True" and "False"
+
+Return ONLY valid JSON in this exact format:
+{{
+  "questions": [
+    {{
+      "question": "Clear question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswer": 0
+    }}
+  ]
+}}
+
+NOTES:
+{truncated_notes}
+
+Important:
+- correctAnswer must be the index (0, 1, 2, or 3 for MCQ; 0 or 1 for True/False)
+- Questions must be directly based on the provided notes
+- Return ONLY the JSON, no additional text or explanations
+- Ensure consistent question type throughout"""
 
 def build_optimized_prompt(notes, num_questions, question_type, difficulty):
     """Build optimized prompt with reduced length"""
@@ -251,7 +379,7 @@ Return as JSON: {{"questions": [{{"question": "...", "options": ["A","B"], "corr
 """
 
 def process_api_response(response_text, num_questions, question_type, difficulty):
-    """Process API response efficiently"""
+    """Process API response with question type validation"""
     try:
         # Find JSON more efficiently
         json_str = extract_json_from_text(response_text)
@@ -259,185 +387,76 @@ def process_api_response(response_text, num_questions, question_type, difficulty
             return None, "invalid_response"
             
         questions_data = json.loads(json_str)
-        raw_questions = questions_data.get('questions', [])[:num_questions]  # Limit early
+        raw_questions = questions_data.get('questions', [])[:num_questions]
         
         if not raw_questions:
             return None, "no_questions"
             
-        # Apply post-processing
+        # Validate and process questions with type checking
         processed_questions = []
-        for q in raw_questions:
+        validation_errors = []
+        
+        for i, q in enumerate(raw_questions):
+            # Validate required fields
+            if not all(key in q for key in ['question', 'options', 'correctAnswer']):
+                validation_errors.append(f"Question {i+1} missing required fields")
+                continue
+                
+            # Validate options array and type consistency
+            options = q.get('options', [])
+            correct_answer = q.get('correctAnswer')
+            expected_option_count = 4 if question_type == "mcq" else 2
+            
+            # Check option count matches question type
+            if len(options) != expected_option_count:
+                validation_errors.append(f"Question {i+1}: Expected {expected_option_count} options for {question_type}, got {len(options)}")
+                continue
+            
+            # Validate correct answer index
+            if (not isinstance(correct_answer, int) or 
+                correct_answer < 0 or 
+                correct_answer >= len(options)):
+                validation_errors.append(f"Question {i+1}: Invalid correctAnswer index {correct_answer} for {len(options)} options")
+                continue
+            
+            # For True/False questions, validate option labels
+            if question_type == "tf":
+                if options != ["True", "False"] and options != ["False", "True"]:
+                    validation_errors.append(f"Question {i+1}: True/False questions must have options ['True', 'False'], got {options}")
+                    continue
+            
             q.update({
                 "question_type": question_type,
                 "difficulty": difficulty
             })
             processed_questions.append(q)
         
-        # Balance answers only if needed and we have enough questions
+        # Log validation errors for debugging
+        if validation_errors:
+            print(f"⚠️ Validation errors: {validation_errors}")
+        
+        if not processed_questions:
+            return None, "no_valid_questions"
+        
+        # Balance answers only for MCQ with enough questions
         if question_type == "mcq" and len(processed_questions) >= 2:
             processed_questions = balance_correct_answers(processed_questions)
             
+        print(f"✅ Processed {len(processed_questions)} valid {question_type} questions")
         return processed_questions, "success"
         
     except json.JSONDecodeError as e:
         print(f"❌ JSON parsing failed: {e}")
         return None, "parse_error"
+    except Exception as e:
+        print(f"❌ Unexpected error in process_api_response: {e}")
+        return None, "process_error"
 
 def extract_json_from_text(text):
     """Efficiently extract JSON from response text"""
     start = text.find('{')
     end = text.rfind('}') + 1
     return text[start:end] if start >= 0 and end > start else None
-
-def get_sample_questions(num_questions, question_type="mcq", difficulty="normal"):
-    """Return sample questions as fallback with support for question types and difficulty levels"""
-    
-    # Base sample questions with all required fields
-    sample_pool = {
-        "mcq": {
-            "normal": [
-                {
-                    "question": "What is the capital of France?",
-                    "options": ["Paris", "London", "Berlin", "Madrid"],
-                    "correctAnswer": 0,
-                    "question_type": "mcq",
-                    "difficulty": "normal"
-                },
-                {
-                    "question": "Which planet is known as the Red Planet?",
-                    "options": ["Venus", "Mars", "Jupiter", "Saturn"],
-                    "correctAnswer": 1,
-                    "question_type": "mcq",
-                    "difficulty": "normal"
-                },
-                {
-                    "question": "What is 2 x 0.2?",
-                    "options": ["2.2", "0.4", "4.4", "0.04"],
-                    "correctAnswer": 1,
-                    "question_type": "mcq",
-                    "difficulty": "normal"
-                },
-                {
-                    "question": "How do you say 'hello' in Japanese?",
-                    "options": ["Ni hao", "Anyeong", "Konnichiwa", "Ola"],
-                    "correctAnswer": 2,
-                    "question_type": "mcq",
-                    "difficulty": "normal"
-                }
-            ],
-            "difficult": [
-                {
-                    "question": "In machine learning, what technique involves training multiple models and combining their predictions?",
-                    "options": ["Gradient descent", "Ensemble learning", "Backpropagation", "Regularization"],
-                    "correctAnswer": 1,
-                    "question_type": "mcq",
-                    "difficulty": "difficult"
-                },
-                {
-                    "question": "Which architectural pattern is most commonly associated with microservices?",
-                    "options": ["Monolithic", "Hexagonal", "Layered", "Event-driven"],
-                    "correctAnswer": 3,
-                    "question_type": "mcq",
-                    "difficulty": "difficult"
-                },
-                {
-                    "question": "What is the time complexity of a well-balanced binary search tree?",
-                    "options": ["O(1)", "O(n)", "O(log n)", "O(n log n)"],
-                    "correctAnswer": 2,
-                    "question_type": "mcq",
-                    "difficulty": "difficult"
-                },
-                {
-                    "question": "Which psychological concept describes the tendency to favor information that confirms existing beliefs?",
-                    "options": ["Cognitive dissonance", "Confirmation bias", "Hindsight bias", "Anchoring effect"],
-                    "correctAnswer": 1,
-                    "question_type": "mcq",
-                    "difficulty": "difficult"
-                }
-            ]
-        },
-        "tf": {
-            "normal": [
-                {
-                    "question": "Paris is the capital of France.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 0,
-                    "question_type": "tf",
-                    "difficulty": "normal"
-                },
-                {
-                    "question": "Water boils at 100 degrees Celsius at sea level.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 0,
-                    "question_type": "tf",
-                    "difficulty": "normal"
-                },
-                {
-                    "question": "The Great Wall of China is visible from space with the naked eye.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 1,
-                    "question_type": "tf",
-                    "difficulty": "normal"
-                },
-                {
-                    "question": "Sharks are mammals.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 1,
-                    "question_type": "tf",
-                    "difficulty": "normal"
-                }
-            ],
-            "difficult": [
-                {
-                    "question": "In quantum computing, qubits can exist in superposition of both 0 and 1 states simultaneously.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 0,
-                    "question_type": "tf",
-                    "difficulty": "difficult"
-                },
-                {
-                    "question": "The CAP theorem states that a distributed system can simultaneously achieve consistency, availability, and partition tolerance.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 1,
-                    "question_type": "tf",
-                    "difficulty": "difficult"
-                },
-                {
-                    "question": "Photosynthesis occurs in the mitochondria of plant cells.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 1,
-                    "question_type": "tf",
-                    "difficulty": "difficult"
-                },
-                {
-                    "question": "The Riemann Hypothesis has been proven to be true.",
-                    "options": ["True", "False"],
-                    "correctAnswer": 1,
-                    "question_type": "tf",
-                    "difficulty": "difficult"
-                }
-            ]
-        }
-    }
-    
-    # Get the appropriate sample pool based on question type and difficulty
-    selected_pool = sample_pool.get(question_type, {}).get(difficulty, [])
-    
-    # If no specific pool found, fall back to MCQ normal
-    if not selected_pool:
-        selected_pool = sample_pool["mcq"]["normal"]
-        # Update the questions to match the requested type and difficulty
-        for question in selected_pool:
-            question["question_type"] = question_type
-            question["difficulty"] = difficulty
-    
-    # Return the requested number of questions, cycling through the pool if needed
-    if len(selected_pool) >= num_questions:
-        return selected_pool[:num_questions]
-    else:
-        # Repeat the pool to meet the required number
-        repeated_pool = (selected_pool * ((num_questions // len(selected_pool)) + 1))[:num_questions]
-        return repeated_pool
 
 @app.route('/auth/login', methods=['POST'])
 def auth_login():
@@ -515,7 +534,12 @@ def require_auth():
     
     # Check if user is authenticated
     if 'user_id' not in session:
-        return jsonify({"status": "error", "message": "Authentication required"}), 401
+        # For AJAX/API requests, return JSON error
+        if request.path.startswith('/api/') or request.is_json:
+            return jsonify({"status": "error", "message": "Authentication required"}), 401
+        else:
+            # For page requests, just allow through - frontend will handle auth modal
+            return None
     
     return None
 
@@ -528,16 +552,16 @@ def generate_questions():
     try:
         user_id = session.get('user_id')
         if user_id:
-            allowance = db.check_session_allowance(user_id)
+            allowance = check_daily_session_limit(user_id)
             if not allowance['allowed']:
                 return jsonify({
                     "status": "error", 
                     "code": "SESSION_LIMIT_EXCEEDED",
-                    "message": f"Free tier limited to {allowance['limit']} sessions per day",
+                    "message": f"Daily limit exceeded. You can create {allowance['limit']} sessions per day.",
                     "reset_in": allowance['reset_in'],
                     "remaining": allowance['remaining'],
                     "limit": allowance['limit']
-                }), 429  # Too Many Requests
+                }), 429
 
         data = request.get_json()        
         notes = data.get('notes', '')
@@ -547,34 +571,84 @@ def generate_questions():
         
         if not notes or not notes.strip():
             return jsonify({"status": "error", "message": "Please provide study notes"}), 400
+
+        # ✅ FIRST: Try AI generation with Claude
+        ai_questions, api_status = generate_questions_with_claude(notes, num_questions, question_type, difficulty)
         
-        # Try AI generation with Gemini
-        ai_questions, api_status = generate_questions_with_gemini(notes, num_questions, question_type, difficulty)
-                
-        # Sample questions as fallback
-        sample_questions = get_sample_questions(num_questions, question_type, difficulty)
-                
+        # ✅ ONLY increment session count if AI generation was successful
+        if ai_questions and user_id:
+            connection = db.get_connection()
+            if connection:
+                try:
+                    cursor = connection.cursor(dictionary=True)
+                    
+                    # Double-check we're not exceeding the limit before incrementing
+                    allowance = check_daily_session_limit(user_id)
+                    if not allowance['allowed']:
+                        return jsonify({
+                            "status": "error", 
+                            "code": "SESSION_LIMIT_EXCEEDED", 
+                            "message": f"Daily limit exceeded. You can create {allowance['limit']} sessions per day.",
+                            "reset_in": allowance['reset_in'],
+                            "remaining": allowance['remaining'],
+                            "limit": allowance['limit']
+                        }), 429
+                    
+                    # Only increment if AI generation was successful
+                    cursor.execute("""
+                        UPDATE users 
+                        SET sessions_used_today = sessions_used_today + 1,
+                            total_sessions_used = total_sessions_used + 1,
+                            last_session_date = CURDATE()
+                        WHERE id = %s
+                    """, (user_id,))
+                    
+                    connection.commit()
+                    print(f"✅ Incremented session count for user {user_id} (successful AI generation)")
+                            
+                except Exception as e:
+                    print(f"Error updating session count: {e}")
+                    # Don't fail the request if count update fails
+                finally:
+                    if cursor:
+                        cursor.close()
+                    connection.close()
+        
+        # ✅ Handle AI response
         if ai_questions:
             response_data = {
                 "status": "success", 
                 "questions": ai_questions[:num_questions],
                 "source": "ai",
-                "message": "Questions generated by AI"
+                "message": "Questions generated successfully"
             }
             return jsonify(response_data)
         else:
-            response_data = {
-                "status": "success", 
-                "questions": sample_questions[:num_questions],
-                "source": "sample",
-                "message": "Using sample questions"
+            # ✅ AI failed - return error without using a session
+            error_messages = {
+                "no_api_key": "AI service not configured. Please contact support.",
+                "quota_exceeded": "AI service quota exceeded. Please try again later.", 
+                "auth_error": "AI service authentication failed. Please contact support.",
+                "invalid_response": "AI returned an invalid response format. Please try again.",
+                "no_questions": "AI didn't generate any questions. Please try again.",
+                "no_valid_questions": "AI generated invalid questions. Please try again.",
+                "parse_error": "Failed to parse AI response. Please try again.",
+                "api_error": "AI service temporarily unavailable. Please try again in a moment.",
+                "process_error": "Error processing AI response. Please try again."
             }
-            return jsonify(response_data)
+            
+            error_msg = error_messages.get(api_status, "AI service error. Please try again.")
+            
+            return jsonify({
+                "status": "error", 
+                "message": error_msg,
+                "code": "AI_ERROR"
+            }), 500
         
     except Exception as e:
         print(f"❌ Error in generate_questions: {str(e)}")
         import traceback
-        traceback.print_exc()  # This will show the full error stack
+        traceback.print_exc()
         return jsonify({"status": "error", "message": f"Internal server error: {str(e)}"}), 500
 
 @app.route('/save_flashcards', methods=['POST'])
@@ -605,17 +679,9 @@ def save_flashcards():
         if not user_id:
             return jsonify({"status": "error", "message": "Authentication required"}), 401
         
-        if user_id:
-            allowance = db.check_session_allowance(user_id)
-            if not allowance['allowed']:
-                return jsonify({
-                    "status": "error", 
-                    "code": "SESSION_LIMIT_EXCEEDED",
-                    "message": f"Free tier limited to {allowance['limit']} sessions per day",
-                    "reset_in": allowance['reset_in'],
-                    "remaining": allowance['remaining'],
-                    "limit": allowance['limit']
-                }), 429
+        # ✅ MODIFIED: Don't check session allowance here for saving
+        # The session was already counted during generation, so allow saving even if limit is reached
+        # This ensures users can complete and save their 10th session
         
         # Convert ISO timestamps to MySQL format
         def convert_to_mysql_datetime(iso_string):
@@ -668,70 +734,6 @@ def save_flashcards():
             # If flashcards fail, delete the orphaned session
             db.execute_query("DELETE FROM study_sessions WHERE id = %s", (session_id,))
             return jsonify({"status": "error", "message": "Failed to save flashcards"}), 500
-        
-        # UPDATE SESSION USAGE COUNT
-        if user_id:
-            # Increment appropriate session counter based on tier
-            connection = db.get_connection()
-            if connection:
-                try:
-                    cursor = connection.cursor(dictionary=True)
-                    
-                    # Check user tier to determine which counter to increment
-                    cursor.execute("SELECT subscription_tier, period_reset_date, sessions_used_this_period FROM users WHERE id = %s", (user_id,))
-                    user_tier_data = cursor.fetchone()
-                    
-                    print(f"🔍 DEBUG: User {user_id}, Tier: {user_tier_data['subscription_tier']}")
-                    print(f"🔍 DEBUG: Pre-update - Reset Date: {user_tier_data['period_reset_date']}, Period Sessions: {user_tier_data['sessions_used_this_period']}")
-                    if user_tier_data:
-                        # Initialize period reset date for paid users on first session
-                        if (user_tier_data['subscription_tier'] != 'free' and 
-                            user_tier_data['period_reset_date'] is None and 
-                            user_tier_data['sessions_used_this_period'] == 0):
-                            print(f"🔍 DEBUG: Initializing reset period for {user_tier_data['subscription_tier']} tier")
-
-                            # TIER-SPECIFIC reset periods
-                            if user_tier_data['subscription_tier'] == 'silver':
-                                days_to_add = 30
-                            elif user_tier_data['subscription_tier'] == 'gold':
-                                days_to_add = 365
-                            else:
-                                days_to_add = 30  # Default fallback
-                            
-                            next_reset_date = datetime.now() + timedelta(days=days_to_add)
-                            cursor.execute("""
-                                UPDATE users SET period_reset_date = %s 
-                                WHERE id = %s
-                            """, (next_reset_date, user_id))
-                            
-                            print(f"DEBUG: User {user_id}, Tier: {user_tier_data['subscription_tier']}, Setting reset date: {next_reset_date}, Days to add: {days_to_add}")
-                        
-                    # Increment the appropriate counter
-                    if user_tier_data['subscription_tier'] == 'free':
-                        # Free tier: increment daily counter
-                        cursor.execute("""
-                            UPDATE users 
-                            SET sessions_used_today = sessions_used_today + 1,
-                                total_sessions_used = total_sessions_used + 1
-                            WHERE id = %s
-                        """, (user_id,))
-                    else:
-                        # Paid tiers: increment period counter
-                        cursor.execute("""
-                            UPDATE users 
-                            SET sessions_used_this_period = sessions_used_this_period + 1,
-                                total_sessions_used = total_sessions_used + 1
-                            WHERE id = %s
-                        """, (user_id,))
-                    
-                    connection.commit()
-                        
-                except Exception as e:
-                    print(f"Error updating session count: {e}")
-                finally:
-                    if cursor:
-                        cursor.close()
-                    connection.close()
         
         invalidate_user_cache(user_id)
         return jsonify({
@@ -882,7 +884,6 @@ def chart_data():
 
 @app.route('/user/tier-info')
 def user_tier_info():
-    """Get user's subscription tier information - FIXED VERSION"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -890,42 +891,42 @@ def user_tier_info():
                 "status": "success",
                 "tier_info": {
                     "tier": "free",
-                    "remaining_sessions": 3,
-                    "session_limit": 3,
+                    "remaining_sessions": 10,
+                    "session_limit": 10,
                     "sessions_used_today": 0,
                     "reset_in": "24h 0m",
-                    "billing_period": "daily"
+                    "billing_period": "daily",
+                    "total_sessions_used": 0
                 }
             })
 
-        allowance = db.check_session_allowance(user_id)
+        allowance = check_daily_session_limit(user_id)
         
-        # Get additional tier info
+        # Get total sessions used
         connection = db.get_connection()
+        total_sessions = 0
         if connection:
             try:
                 cursor = connection.cursor(dictionary=True)
                 cursor.execute("""
-                    SELECT subscription_tier, total_sessions_used 
-                    FROM users WHERE id = %s
+                    SELECT total_sessions_used FROM users WHERE id = %s
                 """, (user_id,))
                 user_data = cursor.fetchone()
+                total_sessions = user_data.get('total_sessions_used', 0) if user_data else 0
             finally:
                 cursor.close()
                 connection.close()
-        else:
-            user_data = {"subscription_tier": "free", "total_sessions_used": 0}
 
         return jsonify({
             "status": "success",
             "tier_info": {
-                "tier": user_data.get('subscription_tier', 'free'),
+                "tier": "free",
                 "remaining_sessions": allowance['remaining'],
                 "session_limit": allowance['limit'],
                 "sessions_used_today": allowance.get('sessions_used_today', 0),
                 "reset_in": allowance['reset_in'],
-                "billing_period": allowance['period'],
-                "total_sessions_used": user_data.get('total_sessions_used', 0)
+                "billing_period": "daily",
+                "total_sessions_used": total_sessions
             }
         })
 
@@ -934,12 +935,12 @@ def user_tier_info():
         return jsonify({
             "status": "error", 
             "message": "Internal server error"
-        }), 500 
+        }), 500
 
-@app.route('/upgrade')
+@app.route('/donate')
 def upgrade_page():
-    """Render the upgrade/pricing page"""
-    return render_template('upgrade.html')
+    """Render the donate page"""
+    return render_template('donate.html')
 
 @app.route('/analytics')
 def analytics():
@@ -1108,7 +1109,7 @@ def send_contact():
 
 @app.route('/user/session-allowance')
 def user_session_allowance():
-    """Get user's current session allowance"""
+    """Get user's current session allowance - SIMPLIFIED"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -1116,14 +1117,14 @@ def user_session_allowance():
                 "status": "success",
                 "allowance": {
                     "allowed": True,
-                    "remaining": 999,
-                    "limit": 999,
-                    "reset_in": "unlimited",
+                    "remaining": 10,
+                    "limit": 10,
+                    "reset_in": "24h",
                     "period": "daily"
                 }
             })
         
-        allowance = db.check_session_allowance(user_id)
+        allowance = check_daily_session_limit(user_id)
         return jsonify({
             "status": "success",
             "allowance": allowance

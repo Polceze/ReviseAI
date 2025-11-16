@@ -1,18 +1,10 @@
 from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
-from mysql.connector import Error
 from config import Config
 import json
 from datetime import datetime, timedelta
 
 class Database:
-    # Tier configuration
-    TIER_CONFIG = {
-        'free': {'limit': 3, 'period': 'daily', 'price': 0},
-        'silver': {'limit': 300, 'period': 'monthly', 'price': 100},
-        'gold': {'limit': 4000, 'period': 'yearly', 'price': 1000}
-    }
-
     def __init__(self):
         self.config = {
             'host': Config.DB_HOST,
@@ -86,50 +78,10 @@ class Database:
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     email VARCHAR(255) UNIQUE NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     subscription_tier VARCHAR(20) DEFAULT 'free',
-                    subscription_start_date TIMESTAMP NULL,
                     sessions_used_today INT DEFAULT 0,
-                    last_session_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    total_sessions_used INT DEFAULT 0,
-                    sessions_used_this_period INT DEFAULT 0,
-                    period_reset_date TIMESTAMP NULL,
-                    next_billing_date TIMESTAMP NULL,
-                    payment_status VARCHAR(20) DEFAULT 'inactive'
-                ) ENGINE=InnoDB
-            """)
-
-            # --- Subscription Plans ---
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS subscription_plans (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(50) UNIQUE NOT NULL,
-                    price FLOAT NOT NULL,
-                    session_limit INT NOT NULL,
-                    billing_period VARCHAR(20) NOT NULL,
-                    description TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB
-            """)
-
-            # --- Payments ---
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS payments (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    plan_id INT NOT NULL,
-                    amount FLOAT NOT NULL,
-                    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    status VARCHAR(20) DEFAULT 'pending',
-                    transaction_id VARCHAR(100),
-                    invoice_id VARCHAR(100),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (plan_id) REFERENCES subscription_plans(id) ON DELETE CASCADE,
-                    INDEX idx_user_id (user_id),
-                    INDEX idx_plan_id (plan_id),
-                    INDEX idx_status (status)
+                    last_session_date DATE,
+                    total_sessions_used INT DEFAULT 0
                 ) ENGINE=InnoDB
             """)
 
@@ -142,7 +94,7 @@ class Database:
                     user_id INT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    session_duration float,
+                    session_duration FLOAT,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                     INDEX idx_user_id (user_id),
                     INDEX idx_created_at (created_at)
@@ -162,21 +114,15 @@ class Database:
                     question_type VARCHAR(20) DEFAULT 'mcq',
                     difficulty VARCHAR(20) DEFAULT 'normal',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    saved_at TIMESTAMP NULL DEFAULT NULL,
                     FOREIGN KEY (session_id) REFERENCES study_sessions(id) ON DELETE CASCADE,
-                    INDEX idx_session_id (session_id),
-                    INDEX idx_question_type (question_type),
-                    INDEX idx_difficulty (difficulty)
+                    INDEX idx_session_id (session_id)
                 ) ENGINE=InnoDB
             """)
 
-            # --- Default Anonymous User ---
-            cursor.execute("""
-                INSERT IGNORE INTO users (email) 
-                VALUES ('anonymous@example.com')
-            """)
+            # REMOVED: Anonymous user creation
 
             connection.commit()
+            print("✅ Database initialized with clean schema (no anonymous users)")
             return True
 
         except Error as e:
@@ -211,7 +157,6 @@ class Database:
                 correct_answer = card.get('correctAnswer', 0)
                 is_correct = user_answer is not None and user_answer == correct_answer
                 
-                # Get question type and difficulty from the card
                 question_type = card.get('questionType', card.get('question_type', 'mcq'))
                 difficulty = card.get('difficulty', 'normal')
                 
@@ -232,8 +177,6 @@ class Database:
                     difficulty
                 )
                 self.execute_query(query, params)
-                
-                print(f"💾 Saved card - Type: {question_type}, Difficulty: {difficulty}")
             
             return True
             
@@ -266,10 +209,9 @@ class Database:
         
         query += " GROUP BY s.id, s.title, s.created_at ORDER BY s.created_at DESC"
         
-        # ✅ USE THE SAFE METHOD INSTEAD!
         sessions = self.fetch_all(query, params)
         
-        # Process the results (keep this part)
+        # Process the results
         formatted_sessions = []
         for s in sessions:
             types = []
@@ -292,7 +234,11 @@ class Database:
         return {"status": "success", "sessions": formatted_sessions}
     
     def get_or_create_user(self, email):
-        """Get user by email, create if not exists"""
+        """Get user by email, create if not exists - PREVENT ANONYMOUS"""
+        # Don't allow anonymous email
+        if email == 'anonymous@example.com' or not email or email.strip() == '':
+            return None
+        
         connection = self.get_connection()  
         if connection is None:
             return None
@@ -321,7 +267,7 @@ class Database:
             if cursor:
                 cursor.close()
             if connection and connection.is_connected():
-                connection.close()  
+                connection.close()
 
     def get_sessions_for_chart(self, user_id=None, limit=10):
         """Get sessions for chart data, including score and question type summary"""
@@ -379,7 +325,7 @@ class Database:
             for s in sessions:
                 types = []
                 if s.get("question_types"):
-                    types = list(set(s["question_types"].split(",")))  # deduplicate
+                    types = list(set(s["question_types"].split(",")))
                 
                 formatted_sessions.append({
                     "id": s["id"],
@@ -416,7 +362,7 @@ class Database:
             cursor = connection.cursor(dictionary=True)
             cursor.execute(
                 """SELECT id, session_id, question, question_type, options, 
-                        correct_answer, user_answer, is_correct, created_at, saved_at
+                        correct_answer, user_answer, is_correct, created_at
                 FROM studycards 
                 WHERE session_id = %s 
                 ORDER BY id""",
@@ -466,7 +412,7 @@ class Database:
                 connection.close() 
 
     def get_user_tier_info(self, user_id):
-        """Get user's subscription tier and usage information"""
+        """Get user's subscription tier and usage information - SIMPLIFIED"""
         connection = self.get_connection() 
         if connection is None:
             return None
@@ -477,17 +423,12 @@ class Database:
             
             cursor.execute("""
                 SELECT 
-                    u.subscription_tier,
-                    u.sessions_used_today,
-                    u.sessions_used_this_period,
-                    u.last_session_reset,
-                    u.period_reset_date,    
-                    u.total_sessions_used,
-                    p.session_limit,
-                    p.billing_period
-                FROM users u
-                LEFT JOIN subscription_plans p ON u.subscription_tier = p.name
-                WHERE u.id = %s
+                    subscription_tier,
+                    sessions_used_today,
+                    last_session_date,
+                    total_sessions_used
+                FROM users
+                WHERE id = %s
             """, (user_id,))
             
             result = cursor.fetchone()
@@ -495,74 +436,25 @@ class Database:
             if not result:
                 return None
                 
-            # Initialize variables
-            remaining_sessions = 0
-            reset_in = timedelta(hours=24)
-            now = datetime.now()
-
-            if result['subscription_tier'] == 'free':
-                if result['sessions_used_today'] == 0:
-                    # No sessions used yet - show full allowance
-                    remaining_sessions = 3
-                    reset_in = timedelta(hours=24)
-                else:
-                    # Check if reset needed
-                    last_reset = result['last_session_reset']
-                    
-                    if last_reset and (now - last_reset) >= timedelta(hours=24):
-                        remaining_sessions = 3
-                        reset_in = timedelta(hours=24)
-                    else:
-                        remaining_sessions = max(0, 3 - result['sessions_used_today'])
-                        next_reset = last_reset + timedelta(hours=24) if last_reset else now + timedelta(hours=24)
-                        reset_in = next_reset - now
-
-            # Silver tier logic 
-            elif result['subscription_tier'] == 'silver':
-                if result['sessions_used_this_period'] == 0:
-                    remaining_sessions = 300
-                    reset_in = result['period_reset_date'] - now if result['period_reset_date'] else timedelta(days=30)
-                else:
-                    remaining_sessions = max(0, 300 - result['sessions_used_this_period'])
-                    reset_in = result['period_reset_date'] - now if result['period_reset_date'] else timedelta(days=30)
-                
-                # Format for display: "Xd Yh" format
-                if reset_in.days > 0:
-                    reset_display = f"{reset_in.days}d {int(reset_in.seconds // 3600)}h"
-                else:
-                    hours = int(reset_in.total_seconds() // 3600)
-                    minutes = int((reset_in.total_seconds() % 3600) // 60)
-                    reset_display = f"{hours}h {minutes}m"
-
-            elif result['subscription_tier'] == 'gold':
-                if result['sessions_used_this_period'] == 0:
-                    remaining_sessions = 4000
-                    reset_in = result['period_reset_date'] - now if result['period_reset_date'] else timedelta(days=365)
-                else:
-                    remaining_sessions = max(0, 4000 - result['sessions_used_this_period'])
-                    reset_in = result['period_reset_date'] - now if result['period_reset_date'] else timedelta(days=365)
-                
-                # Format for display: "Xd Yh" format
-                if reset_in.days > 0:
-                    reset_display = f"{reset_in.days}d {int(reset_in.seconds // 3600)}h"
-                else:
-                    hours = int(reset_in.total_seconds() // 3600)
-                    minutes = int((reset_in.total_seconds() % 3600) // 60)
-                    reset_display = f"{hours}h {minutes}m"
-
-            # Format reset time for display
-            hours, remainder = divmod(reset_in.total_seconds(), 3600)
-            minutes = remainder // 60
-            reset_display = f"{int(hours)}h {int(minutes)}m"
+            # Calculate remaining sessions
+            sessions_used_today = result['sessions_used_today'] or 0
+            last_date = result['last_session_date']
+            today = datetime.now().date()
+            
+            # Reset counter if it's a new day
+            if last_date != today:
+                remaining_sessions = 10
+            else:
+                remaining_sessions = max(0, 10 - sessions_used_today)
             
             return {
-                'tier': result['subscription_tier'],
-                'sessions_used_today': result['sessions_used_today'],
-                'session_limit': result['session_limit'],
+                'tier': 'free',
+                'sessions_used_today': sessions_used_today,
+                'session_limit': 10,
                 'remaining_sessions': remaining_sessions,
-                'reset_in': reset_display,
-                'billing_period': result['billing_period'],
-                'total_sessions_used': result['total_sessions_used']
+                'reset_in': 'midnight',
+                'billing_period': 'daily',
+                'total_sessions_used': result['total_sessions_used'] or 0
             }
 
         except Exception as e:
@@ -574,192 +466,58 @@ class Database:
             if connection and connection.is_connected():
                 connection.close()
 
-    def get_user_sessions_with_analytics(self, user_id):
-        """Get user sessions with analytics data"""
-        query = """
-            SELECT 
-                ss.*,
-                COUNT(sc.id) as total_questions,
-                SUM(CASE WHEN sc.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers,
-                ss.created_at as session_start_time,
-                ss.updated_at as session_end_time,
-                ss.session_duration as session_duration
-            FROM study_sessions ss
-            LEFT JOIN studycards sc ON ss.id = sc.session_id
-            WHERE ss.user_id = %s
-            GROUP BY ss.id
-            ORDER BY ss.created_at DESC
-        """
-        return self.fetch_all(query, (user_id,))
-
-    def get_analytics_type_difficulty(self, user_id):
-        """Get aggregated analytics data for question types and difficulties"""
-        connection = self.get_connection()  
-        if connection is None:
-            print("❌ Failed to connect to database")
-            return None
-        
-        cursor = None
-        try:
-            cursor = connection.cursor(dictionary=True)
-            
-            # Query for question type analytics
-            type_query = """
-                SELECT 
-                    sc.question_type,
-                    COUNT(*) as total_questions,
-                    SUM(CASE WHEN sc.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers
-                FROM studycards sc
-                JOIN study_sessions ss ON sc.session_id = ss.id
-                WHERE ss.user_id = %s
-                GROUP BY sc.question_type
-            """
-            
-            # Query for difficulty analytics
-            difficulty_query = """
-                SELECT 
-                    sc.difficulty,
-                    COUNT(*) as total_questions,
-                    SUM(CASE WHEN sc.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers
-                FROM studycards sc
-                JOIN study_sessions ss ON sc.session_id = ss.id
-                WHERE ss.user_id = %s
-                GROUP BY sc.difficulty
-            """
-            
-            cursor.execute(type_query, (user_id,))
-            type_data = cursor.fetchall()
-            
-            cursor.execute(difficulty_query, (user_id,))
-            difficulty_data = cursor.fetchall()
-            
-            # Format the results
-            result = {
-                'question_types': type_data,
-                'difficulties': difficulty_data
-            }
-            
-            return result
-            
-        except Error as e:
-            print(f"Error getting analytics data: {e}")
-            return None
-        finally:
-            if cursor:
-                cursor.close()
-            if connection and connection.is_connected():
-                connection.close() 
-
     def check_session_allowance(self, user_id):
-        """Check session allowance for any tier"""
+        """Check session allowance - SIMPLIFIED"""
         connection = self.get_connection()
         if connection is None:
-            return {"allowed": False, "remaining": 0, "limit": 0, "reset_in": "unknown", "period": "daily"}
+            return {"allowed": True, "remaining": 10, "limit": 10, "reset_in": "midnight", "period": "daily", "sessions_used_today": 0}
         
         cursor = None
         try:
             cursor = connection.cursor(dictionary=True)
             
-            # Get user's current tier and session usage
+            # Get user's current session usage
             cursor.execute("""
-                SELECT subscription_tier, sessions_used_today, last_session_reset, 
-                    subscription_start_date, sessions_used_this_period, period_reset_date
+                SELECT sessions_used_today, 
+                    DATE(last_session_date) as last_date,
+                    CURDATE() as today
                 FROM users WHERE id = %s
             """, (user_id,))
             user = cursor.fetchone()
             
             if not user:
-                return {"allowed": False, "remaining": 0, "limit": 0, "reset_in": "unknown", "period": "daily"}
-
-            tier = user['subscription_tier'] or 'free'
-            tier_config = self.TIER_CONFIG.get(tier, self.TIER_CONFIG['free'])
+                return {"allowed": True, "remaining": 10, "limit": 10, "reset_in": "midnight", "period": "daily", "sessions_used_today": 0}
             
-            now = datetime.now()
-            remaining = 0
-            reset_in_str = "24h 0m"
-            period = tier_config['period']
-
-            # FREE TIER - Daily limit
-            if tier == 'free':
-                if user['sessions_used_today'] == 0:
-                    remaining = tier_config['limit']
-                    reset_in_str = "24h 0m"
-                else:
-                    last_reset = user['last_session_reset']
-                    if last_reset and (now - last_reset) >= timedelta(hours=24):
-                        # Reset counter
-                        cursor.execute("UPDATE users SET sessions_used_today = 0, last_session_reset = %s WHERE id = %s", (now, user_id))
-                        connection.commit()
-                        remaining = tier_config['limit']
-                    else:
-                        remaining = max(0, tier_config['limit'] - user['sessions_used_today'])
-                        next_reset = last_reset + timedelta(hours=24) if last_reset else now + timedelta(hours=24)
-                        reset_in = next_reset - now
-                        reset_in_str = f"{int(reset_in.total_seconds() // 3600)}h {int((reset_in.total_seconds() % 3600) // 60)}m"
+            sessions_used_today = user['sessions_used_today'] or 0
+            last_date = user['last_date']
+            today = user['today']
             
-            # SILVER TIER - Monthly limit
-            elif tier == 'silver':
-                if not user['period_reset_date']:
-                    # User hasn't created any sessions yet - show full allowance
-                    remaining = tier_config['limit']
-                    reset_in_str = "30d 0h"  # Show full period until first session
-                else:
-                    # Existing logic for users with active periods
-                    if now >= user['period_reset_date']:
-                        # Reset monthly counter
-                        next_reset_date = user['period_reset_date'] + timedelta(days=30)
-                        cursor.execute("""
-                            UPDATE users SET sessions_used_this_period = 0, 
-                            period_reset_date = %s WHERE id = %s
-                        """, (next_reset_date, user_id))
-                        connection.commit()
-                        remaining = tier_config['limit']
-                    else:
-                        # Calculate remaining sessions
-                        remaining = max(0, tier_config['limit'] - (user['sessions_used_this_period'] or 0))
-                        reset_in = user['period_reset_date'] - now
-                        reset_in_str = f"{reset_in.days}d {int(reset_in.seconds // 3600)}h"
+            # Reset counter if it's a new day
+            if last_date != today:
+                sessions_used_today = 0
+                # Update the last_session_date
+                cursor.execute("""
+                    UPDATE users 
+                    SET sessions_used_today = 0, last_session_date = CURDATE()
+                    WHERE id = %s
+                """, (user_id,))
+                connection.commit()
             
-            # GOLD TIER - Yearly limit
-            elif tier == 'gold':
-                if not user['period_reset_date']:
-                    # User hasn't created any sessions yet - show full allowance
-                    remaining = tier_config['limit']
-                    reset_in_str = "365d 0h"
-                else:
-                    # Check if yearly period has expired
-                    if now >= user['period_reset_date']:
-                        # Reset yearly counter
-                        next_reset_date = user['period_reset_date'] + timedelta(days=365)
-                        cursor.execute("""
-                            UPDATE users SET sessions_used_this_period = 0, 
-                            period_reset_date = %s WHERE id = %s
-                        """, (next_reset_date, user_id))
-                        connection.commit()
-                        remaining = tier_config['limit']
-                    else:
-                        # Calculate remaining sessions
-                        remaining = max(0, tier_config['limit'] - (user['sessions_used_this_period'] or 0))
-                        reset_in = user['period_reset_date'] - now
-                        reset_in_str = f"{reset_in.days}d {int(reset_in.seconds // 3600)}h"
-
-            else:
-                # Unknown tier - fallback to unlimited access but log error
-                print(f"Warning: Unknown tier '{tier}', defaulting to unlimited access")
-                remaining = tier_config['limit']
-                reset_in_str = "unlimited"
+            remaining_sessions = max(0, 10 - sessions_used_today)
+            allowed = sessions_used_today < 10
             
             return {
-                "allowed": remaining > 0,
-                "remaining": remaining,
-                "limit": tier_config['limit'],
-                "reset_in": reset_in_str,
-                "period": period
+                "allowed": allowed,
+                "remaining": remaining_sessions,
+                "limit": 10,
+                "reset_in": "midnight",
+                "period": "daily",
+                "sessions_used_today": sessions_used_today
             }
                     
         except Exception as e:
             print(f"Error checking session allowance: {e}")
-            return {"allowed": True, "remaining": 999, "limit": 999, "reset_in": "unknown", "period": "daily"}
+            return {"allowed": True, "remaining": 10, "limit": 10, "reset_in": "midnight", "period": "daily", "sessions_used_today": 0}
         finally:
             if cursor:
                 cursor.close()
@@ -786,49 +544,3 @@ class Database:
                 cursor.close()
             if conn and conn.is_connected():
                 conn.close()
-
-    def handle_tier_change(self, user_id, new_tier):
-        """Reset period tracking when user changes tiers"""
-        connection = self.get_connection()
-        if not connection:
-            return False
-        
-        cursor = None
-        try:
-            cursor = connection.cursor()
-            
-            if new_tier == 'free':
-                # Reset to free tier logic
-                cursor.execute("""
-                    UPDATE users 
-                    SET sessions_used_this_period = 0,
-                        period_reset_date = NULL,
-                        sessions_used_today = 0  # Also reset daily counter
-                    WHERE id = %s
-                """, (user_id,))
-            else:
-                # Paid tier - set appropriate reset period
-                days_to_add = 30 if new_tier == 'silver' else 365
-                new_reset_date = datetime.now() + timedelta(days=days_to_add)
-                
-                cursor.execute("""
-                    UPDATE users 
-                    SET sessions_used_this_period = 0,
-                        period_reset_date = %s,
-                        sessions_used_today = 0  # Reset daily counter too
-                    WHERE id = %s
-                """, (new_reset_date, user_id))
-            
-            connection.commit()
-            print(f"Reset period for user {user_id} to {new_tier} tier")
-            return True
-            
-        except Exception as e:
-            print(f"Error handling tier change: {e}")
-            connection.rollback()
-            return False
-        finally:
-            if cursor:
-                cursor.close()
-            if connection and connection.is_connected():
-                connection.close()

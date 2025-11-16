@@ -6,7 +6,7 @@ let currentPage = 1;
 const sessionsPerPage = 5;
 let progressChart = null;
 let userSessionCount = 0;
-const userSessionLimit = 3;
+const userSessionLimit = 10;
 
 // Advanced Analytics Functions
 let trendsChart = null;
@@ -42,6 +42,11 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('AI Study Buddy loaded successfully!');
     initMobileNavigation();
 
+    // Initialize collapsible sidebar
+    setTimeout(() => {
+        initCollapsibleSidebar();
+    }, 100);
+
     // Sync user data after auth check
     setTimeout(() => {
         syncMobileUserData();
@@ -62,7 +67,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (window.location.pathname === '/analytics') {
-        setTimeout(initAllCharts, 300);
+        // Wait for auth to complete, then initialize charts
+        initAuth().then(isAuthenticated => {
+            if (isAuthenticated) {
+                setTimeout(initAllCharts, 300);
+            }
+        });
     }
 
     // Resize event listener for flashcard heights
@@ -131,9 +141,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (continueSameBtn) {
         continueSameBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            console.log('Continue with Same Notes clicked');
             clearFlashcardsUI(); // Clear flashcards for new session
             resetUIForNewSession(false); // Keep notes
+            checkSessionAllowance().then(() => { updateGenerateButtonState(); });
             document.getElementById('generate-btn').focus();
         });
     }
@@ -141,9 +151,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (startFreshBtn) {
         startFreshBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            console.log('Start Fresh clicked');
             clearFlashcardsUI(); // Clear flashcards for new session
             resetUIForNewSession(true); // Clear notes
+            checkSessionAllowance().then(() => { updateGenerateButtonState(); });
             document.getElementById('study-notes').focus();
         });
     }
@@ -151,7 +161,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (stayInSessionBtn) {
         stayInSessionBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            console.log('Stay in This Session clicked');
             stayInSession(); // Only hide modal, preserve all UI
         });
     }
@@ -199,7 +208,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         const isInitialized = initMobileMenu();
         if (!isInitialized) {
-            console.log('Mobile menu not initialized yet, will retry after auth');
         }
     }, 1000); // Give the page time to load completely
 
@@ -267,10 +275,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Delegate click events for dynamically created "View" buttons
 document.addEventListener('click', function(e) {
-    // Check if a "View" button was clicked
-    if (e.target.classList.contains('view-session-btn')) {
-        const sessionId = e.target.getAttribute('data-id');
-        openSessionModal(sessionId);
+    // Check if a "View" button was clicked - FIXED SELECTOR
+    if (e.target.classList.contains('view-session-btn') || 
+        e.target.closest('.view-session-btn')) {
+        const viewBtn = e.target.classList.contains('view-session-btn') ? 
+                       e.target : e.target.closest('.view-session-btn');
+        const sessionId = viewBtn.getAttribute('data-id');
+        if (sessionId) {
+            openSessionModal(sessionId);
+        }
     }
 });
 
@@ -361,7 +374,7 @@ function generateFlashcards() {
         num_questions: count,
         question_type: questionType,
         difficulty: difficulty,
-        session_start_time: sessionStartTime.toISOString() // Send start time to backend
+        session_start_time: sessionStartTime.toISOString()
     };
 
     fetch('/generate_questions', {
@@ -372,7 +385,17 @@ function generateFlashcards() {
         body: JSON.stringify(payload)
     })
     .then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (response.status === 429) {
+            // Session limit exceeded
+            return response.json().then(errorData => {
+                throw new Error(`SESSION_LIMIT_EXCEEDED:${errorData.remaining || 0}`);
+            });
+        }
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(`AI_ERROR:${errorData.message || 'Unknown error'}`);
+            });
+        }
         return response.json();
     })
     .then(data => {
@@ -385,8 +408,8 @@ function generateFlashcards() {
                 correctAnswer: (typeof q.correctAnswer !== 'undefined') ? q.correctAnswer : (q.correct_answer ?? 0),
                 userAnswer: (typeof q.userAnswer !== 'undefined') ? q.userAnswer : (q.user_answer ?? null),
                 is_correct: (typeof q.is_correct !== 'undefined') ? q.is_correct : null,
-                questionType: q.questionType ?? q.question_type ?? 'mcq', // Ensure this exists
-                difficulty: q.difficulty ?? 'normal', // Ensure this exists
+                questionType: q.questionType ?? q.question_type ?? 'mcq',
+                difficulty: q.difficulty ?? 'normal',
                 answered: false
             }));
             
@@ -397,7 +420,14 @@ function generateFlashcards() {
 
             displayFlashcards();
 
-            // Enable save button for new studycards (save button logic may check unanswered)
+            // Disable generate button after successful generation
+            if (generateBtn) {
+                generateBtn.disabled = true;
+                generateBtn.textContent = 'Save Session First';
+                generateBtn.title = 'Please save your current session before generating new questions';
+            }
+
+            // Enable save button for new studycards
             if (saveBtn) {
                 saveBtn.disabled = false;
                 saveBtn.textContent = 'Save study session';
@@ -407,20 +437,54 @@ function generateFlashcards() {
             // Show AI status message if provided
             const statusMessage = document.getElementById('ai-status');
             if (statusMessage) {
-                statusMessage.textContent = data.message || (data.source === 'ai' ? 'Questions generated by AI' : 'Using sample questions');
+                statusMessage.textContent = data.message || 'Questions generated successfully';
                 statusMessage.className = `ai-status ${data.source || ''}`;
             }
         } else {
             alert('Error generating questions: ' + (data.message || 'Unknown error'));
+            // Re-enable generate button on error
+            if (generateBtn) {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate studycards';
+                generateBtn.title = 'Generate studycards from your notes';
+            }
         }
     })
     .catch(error => {
         console.error('Error generating questions:', error);
-        alert('Error generating questions. See console for details.');
+        
+        if (error.message.startsWith('SESSION_LIMIT_EXCEEDED')) {
+            const remaining = error.message.split(':')[1];
+            alert(`You've reached your daily limit of 10 sessions. You can create new sessions again at midnight.`);
+            
+            // Keep generate button disabled with limit message
+            if (generateBtn) {
+                generateBtn.disabled = true;
+                generateBtn.textContent = 'Daily Limit Reached';
+                generateBtn.title = 'You can create new sessions again at midnight';
+            }
+        } else if (error.message.startsWith('AI_ERROR')) {
+            const errorMsg = error.message.split(':')[1];
+            alert(`AI service error: ${errorMsg}\n\nPlease try again.`);
+            
+            // ✅ RE-ENABLE generate button on AI errors (session not counted)
+            if (generateBtn) {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate studycards';
+                generateBtn.title = 'Generate studycards from your notes';
+            }
+        } else {
+            alert('Error generating questions. Please try again.');
+            // Re-enable generate button on other errors
+            if (generateBtn) {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate studycards';
+                generateBtn.title = 'Generate studycards from your notes';
+            }
+        }
     })
     .finally(() => {
         if (loader) loader.style.display = 'none';
-        if (generateBtn) generateBtn.disabled = false;
     });
 }
 
@@ -457,11 +521,9 @@ function updateSaveButtonState() {
 function setUniformCardHeights() {
     const flashcards = document.querySelectorAll('.flashcard');
     if (flashcards.length === 0) {
-        console.log('No flashcards to resize');
         return;
     }
     
-    console.log('Adjusting flashcard heights');
     let maxHeight = 0;
     
     // Reset heights to auto to get accurate measurements
@@ -492,7 +554,6 @@ function setUniformCardHeights() {
     flashcards.forEach(card => {
         card.style.height = `${maxHeight}px`;
     });
-    console.log(`Set uniform height to ${maxHeight}px for ${flashcards.length} flashcards`);
 }
 
 // Display studycards function
@@ -502,6 +563,15 @@ function displayFlashcards() {
     
     flashcardsContainer.innerHTML = '';
     scoreContainer.textContent = 'Score: 0/0 (0%)';
+    
+    // Detect if it's a touch device
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const flipInstruction = isTouchDevice ? 
+        'Select an answer, then tap to flip' : 
+        'Select an answer, then click to flip';
+    const returnInstruction = isTouchDevice ?
+        'Tap to return to question' :
+        'Click to return to question';
     
     flashcardsData.forEach((card, index) => {
         const flashcardEl = document.createElement('div');
@@ -526,12 +596,12 @@ function displayFlashcards() {
                             `;
                         }).join('')}
                     </div>
-                    <div class="instructions">Select an answer, then click to flip</div>
+                    <div class="instructions">${flipInstruction}</div>
                 </div>
                 <div class="flashcard-back">
                     <div class="question">${card.question}</div>
                     <div class="feedback" id="feedback-${index}"></div>
-                    <div class="instructions">Click to return to question</div>
+                    <div class="instructions">${returnInstruction}</div>
                 </div>
             </div>
         `;
@@ -570,7 +640,7 @@ function displayFlashcards() {
         });
     });
     
-    setUniformCardHeights(); // Call directly instead of timeout
+    setUniformCardHeights();
     updateSaveButtonState();
 }
 
@@ -756,13 +826,8 @@ function updateProgressChart(sessions, limit = 5) {
 
 // Load sessions
 function loadSessions(page = 1) {
-    console.log('🔍 Loading sessions from /list_sessions...');
-
     // Check if user is authenticated first
     if (!currentUser) {
-        console.log('⚠️  User not authenticated, skipping session load');
-        
-        // Only try to update sessions container if it exists
         const sessionsContainer = document.getElementById('sessions-container');
         if (sessionsContainer) {
             sessionsContainer.innerHTML = '<p class="no-sessions">Please sign in to view your study sessions</p>';
@@ -776,8 +841,8 @@ function loadSessions(page = 1) {
     
     fetch('/get_sessions')
         .then(response => {
-            console.log('📋 Response status:', response.status, response.statusText);
             if (response.status === 401) {
+                // Authentication required - show modal
                 showAuthModal();
                 throw new Error('Authentication required');
             }
@@ -786,12 +851,9 @@ function loadSessions(page = 1) {
             }
             return response.json();
         })
-        .then(data => {
-            console.log('📊 Sessions data received:', data);
-            
+        .then(data => {            
             if (data.status === 'success') {
                 allSessions = data.sessions;
-                console.log(`✅ Found ${allSessions.length} total sessions for user`);
 
                 // RENDER SESSIONS FOR SESSIONS PAGE
                 const sessionsContainer = document.getElementById('sessions-container');
@@ -799,7 +861,7 @@ function loadSessions(page = 1) {
                     if (allSessions.length === 0) {
                         sessionsContainer.innerHTML = '<p class="no-sessions">No study sessions yet.</p>';
                     } else {
-                        renderPaginatedSessions();  // ← RENDER SESSIONS HERE
+                        renderPaginatedSessions();
                     }
                 }
                 
@@ -811,13 +873,11 @@ function loadSessions(page = 1) {
             } else {
                 console.error('❌ Error loading sessions:', data.message);
                 
-                // Only update sessions container if it exists
                 const sessionsContainer = document.getElementById('sessions-container');
                 if (sessionsContainer) {
                     sessionsContainer.innerHTML = '<p class="no-sessions">No study sessions found yet.</p>';
                 }
                 
-                // Clear the chart and stats on error
                 updateProgressChart([], 5);
                 updateSummaryStats([]);
             }
@@ -825,7 +885,6 @@ function loadSessions(page = 1) {
         .catch(error => {
             console.error('❌ Error fetching sessions:', error);
             
-            // Only update sessions container if it exists
             const sessionsContainer = document.getElementById('sessions-container');
             if (sessionsContainer) {
                 if (error.message.includes('Authentication')) {
@@ -835,11 +894,9 @@ function loadSessions(page = 1) {
                 }
             }
             
-            // Clear the chart and stats on error
             updateProgressChart([], 5);
             updateSummaryStats([]);
             
-            // Also update analytics with empty data on error
             if (window.location.pathname === '/analytics') {
                 updateAdvancedAnalytics([]);
             }
@@ -848,19 +905,15 @@ function loadSessions(page = 1) {
 
 // Render paginated sessions
 function renderPaginatedSessions() {
-    console.log('🔄 Rendering paginated sessions');
     const container = document.getElementById("sessions-container");
-    console.log('Container found:', !!container);
     
     if (!container) {
-        console.log('❌ No sessions container found');
         return;
     }
     const pagination = document.getElementById("pagination-controls");
     
     // Check if elements exist
     if (!container || !pagination) {
-        console.log('Sessions container or pagination not found - probably not on sessions page');
         return;
     }
 
@@ -986,7 +1039,7 @@ function renderSessions(sessions) {
     list.className = 'sessions-list';
 
     sessions.forEach(session => {
-        // Duration formatting logic (from before)
+        // Duration formatting logic
         const minutesRaw = calculateSessionDuration(session) / 60;
 
         let durationDisplay;
@@ -1001,7 +1054,7 @@ function renderSessions(sessions) {
             durationDisplay = `${roundedStr} ${unit}`;
         }
 
-        // ✅ Score styling logic
+        // Score styling logic
         const score = session.score_percentage || 0;
         const scoreClass =
             score >= 80 ? 'session-score high'
@@ -1038,7 +1091,6 @@ function renderSessions(sessions) {
         list.appendChild(item);
     });
 
-
     container.appendChild(list);
 
     // Attach delete listeners
@@ -1051,7 +1103,6 @@ function renderSessions(sessions) {
         });
     });
 }
-
 
 // Filter sessions by search term
 function filterSessions(searchTerm) {
@@ -1127,7 +1178,8 @@ function checkSavedAuth() {
         const savedEmail = localStorage.getItem('userEmail');
         const savedUserId = localStorage.getItem('userId');
         
-        if (!savedEmail || !savedUserId) {
+        // Don't allow empty or anonymous emails
+        if (!savedEmail || !savedUserId || savedEmail === 'anonymous@example.com') {
             showAuthModal();
             disableAppInterface();
             resolve(false); 
@@ -1142,7 +1194,7 @@ function checkSavedAuth() {
                     // We have a valid session
                     setUserAuthenticated(data.user);
                     hideAuthModal();
-                    resolve(true); // Resolve with true for authenticated
+                    resolve(true);
                 } else {
                     // Session expired, try to re-login
                     attemptAutoLogin(savedEmail).then(resolve);
@@ -1289,9 +1341,8 @@ function handleLogin() {
 }
 
 function handleLogout() {
-    // Get the submit button and reset it FIRST
     const submitBtn = document.getElementById('auth-submit');
-    resetAuthButton(); // Reset button state immediately
+    resetAuthButton();
     
     fetch('/auth/logout')
         .then(response => response.json())
@@ -1312,20 +1363,16 @@ function handleLogout() {
                 // Clear sessions data, chart, and stats
                 allSessions = [];
                 if (progressChart) {
-                    updateProgressChart(allSessions, 5); // Clear the chart
+                    updateProgressChart(allSessions, 5);
                 }
-                updateSummaryStats(allSessions); // Reset summary stats
-                
-                // Disable the app interface
-                if (typeof disableAppInterface === 'function') {
-                    disableAppInterface();
-                }
+                updateSummaryStats(allSessions);
                 
                 // Show auth modal and hide topbar
                 showAuthModal();
                 hideTopBar();
                 
-                console.log("✅ User logged out successfully - app reset");
+                // Update UI state without reloading
+                disableAppInterface();
             }
         })
         .catch(error => {
@@ -1334,11 +1381,7 @@ function handleLogout() {
             resetAuthButton();
             showAuthModal();
             hideTopBar();
-            
-            // Still disable the interface on error
-            if (typeof disableAppInterface === 'function') {
-                disableAppInterface();
-            }
+            disableAppInterface();
         });
 }
 
@@ -1378,11 +1421,6 @@ function hideTopBar() {
     document.body.classList.remove('has-topbar');
 }
 
-function clearUserData() {
-    // Will be implemented in later phases
-    console.log("User data cleared");
-}
-
 // Function to reset UI for new session
 function resetUIForNewSession(clearNotes = true) {
     // Clear flashcards
@@ -1409,6 +1447,14 @@ function resetUIForNewSession(clearNotes = true) {
     saveBtn.title = 'Generate studycards first';
     hasSavedCurrentSet = false;
     
+    // ✅ RE-ENABLE GENERATE BUTTON when starting fresh
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate studycards';
+        generateBtn.title = 'Generate studycards from your notes';
+    }
+    
     // Hide success modal
     hideSuccessModal();
     
@@ -1433,6 +1479,14 @@ function stayInSession() {
     console.log('Current notes:', document.getElementById('study-notes').value);
     console.log('Score:', document.getElementById('score-container').textContent);
     console.log('Save button state:', document.getElementById('save-btn').textContent);
+    
+    // ✅ KEEP GENERATE BUTTON DISABLED when staying in session
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Save Session First';
+        generateBtn.title = 'Please save your current session before generating new questions';
+    }
 }
 
 // Function to show success message with options
@@ -1457,6 +1511,14 @@ function handleSaveSuccess() {
     saveBtn.textContent = '✓ Saved';
     saveBtn.title = 'Session saved! Start a new session to continue.';
     hasSavedCurrentSet = true;
+    
+    // ✅ RE-ENABLE GENERATE BUTTON after successful save
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate studycards';
+        generateBtn.title = 'Generate studycards from your notes';
+    }
     
     // Show success modal
     showSuccessModal();
@@ -1536,6 +1598,14 @@ function clearChatArea() {
         saveBtn.title = 'Generate studycards first';
     }
     
+    // ✅ RE-ENABLE GENERATE BUTTON when clearing chat area
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate studycards';
+        generateBtn.title = 'Generate studycards from your notes';
+    }
+    
     // Reset AI status if exists
     const statusMessage = document.getElementById('ai-status');
     if (statusMessage) {
@@ -1551,8 +1621,13 @@ function clearChatArea() {
 
 // Function to open the session detail modal
 function openSessionModal(sessionId) {
-    console.log("Opening modal for session:", sessionId);
+    console.log('Opening session modal for ID:', sessionId); // DEBUG
+    
     const modal = document.getElementById('session-detail-modal');
+    if (!modal) {
+        console.error('Modal element not found!');
+        return;
+    }
     
     // Show loading state
     document.getElementById('session-modal-title').textContent = 'Loading...';
@@ -1572,6 +1647,7 @@ function openSessionModal(sessionId) {
             return response.json();
         })
         .then(data => {
+            console.log('Session data loaded:', data); // DEBUG
             if (data.status === 'success') {
                 populateSessionModal(sessionId, data.flashcards);
             } else {
@@ -1591,7 +1667,6 @@ function openSessionModal(sessionId) {
 
 // Function to close the session detail modal
 function closeSessionModal() {
-    console.log("Closing session modal");
     const modal = document.getElementById('session-detail-modal');
     modal.style.display = 'none';
     
@@ -1604,7 +1679,6 @@ function closeSessionModal() {
 
 // Function to populate the modal with session data
 function populateSessionModal(sessionId, flashcards) {
-    console.log("Populating modal with", flashcards.length, "flashcards");
     
     // Calculate score
     const totalQuestions = flashcards.length;
@@ -1674,7 +1748,6 @@ function generateQuestionsHTML(flashcards) {
 
 // Function to delete a session from the modal
 function deleteSessionFromModal(sessionId) {
-    console.log("Deleting session from modal:", sessionId);
     
     // Show loading state on the delete button
     const deleteBtn = document.getElementById('modal-delete-session-btn');
@@ -1779,15 +1852,15 @@ async function updateTierInfo() {
                 mobileSessionsElement.textContent = `Sessions remaining: ${tierInfo.remaining_sessions}`;
             }
             
-            // Update reset time (both)
+            // Show reset message
             const resetElement = document.getElementById('resets-in');
             const mobileResetElement = document.getElementById('mobile-resets-in');
             
             if (resetElement) {
-                resetElement.textContent = `Resets in: ${tierInfo.reset_in}`;
+                resetElement.textContent = `Resets at midnight`;
             }
             if (mobileResetElement) {
-                mobileResetElement.textContent = `Resets in: ${tierInfo.reset_in}`;
+                mobileResetElement.textContent = `Resets at midnight`;
             }
 
             setTimeout(syncMobileUserData, 50);
@@ -1800,10 +1873,10 @@ async function updateTierInfo() {
                 el.textContent = fallbackText;
             });
             document.querySelectorAll('.sessions-remaining').forEach(el => {
-                el.textContent = 'Sessions remaining: 3';
+                el.textContent = 'Sessions remaining: 10';
             });
             document.querySelectorAll('.resets-in').forEach(el => {
-                el.textContent = 'Resets in: 24h 0m';
+                el.textContent = 'Resets at midnight'; 
             });
         }
     } catch (error) {
@@ -1863,6 +1936,14 @@ function disableAppInterface() {
     
     // Reset stats
     updateSummaryStats([]);
+    
+    // Set reset message for logged out state
+    document.querySelectorAll('.resets-in').forEach(el => {
+        el.textContent = 'Resets at midnight';
+    });
+    document.querySelectorAll('.sessions-remaining').forEach(el => {
+        el.textContent = 'Sessions remaining: 10';
+    });
 }
 
 function enableAppInterface() {
@@ -1891,7 +1972,6 @@ function initMobileMenu() {
         const mobileMenu = document.getElementById('mobile-menu');
         
         if (!mobileMenuToggle || !mobileMenu) {
-            console.log('Mobile menu elements not found');
             return false;
         }
         
@@ -1931,7 +2011,6 @@ function initMobileMenu() {
             item.addEventListener('click', closeMobileMenu);
         });
         
-        console.log('Mobile menu initialized successfully');
         return true;
     } catch (error) {
         console.error('Mobile menu initialization error:', error);
@@ -2540,6 +2619,12 @@ function initTypePerformanceChart() {
 // Initialize all charts
 function initAllCharts() {
     try {
+        // Check if user is authenticated before initializing charts
+        if (!window.currentUser) {
+            console.log('⏳ User not authenticated, deferring chart initialization');
+            return;
+        }
+        
         if (document.getElementById('progress-chart') && !progressChart) {
             progressChart = initProgressChart();
             if (progressChart) enhanceChartTextBrightness(progressChart);
@@ -2558,7 +2643,7 @@ function initAllCharts() {
         }
         
         // Load data after charts are initialized
-        if (currentUser) {
+        if (window.currentUser) {
             loadSessions(1);
         }
     } catch (error) {
@@ -2569,7 +2654,6 @@ function initAllCharts() {
 // Chart update functions
 function updateTrendsChart(sessions) {
     if (!trendsChart) {
-        console.log('Trends chart not initialized');
         return;
     }
     
@@ -2605,7 +2689,6 @@ function updateTrendsChart(sessions) {
 
 function updateTypePerformanceChart(typeData) {
     if (!typePerformanceChart) {
-        console.log('Type performance chart not initialized');
         return;
     }
     
@@ -2623,12 +2706,10 @@ function updateTypePerformanceChart(typeData) {
     ];
     
     typePerformanceChart.update();
-    console.log('Type performance chart updated with data');
 }
 
 function updateDifficultyChart(difficultyData) {
     if (!difficultyChart) {
-        console.log('Difficulty chart not initialized');
         return;
     }
     
@@ -2646,7 +2727,6 @@ function updateDifficultyChart(difficultyData) {
     ];
     
     difficultyChart.update();
-    console.log('Difficulty chart updated with data');
 }
 
 function updateDifficultyChart(difficultyData) {
@@ -2731,7 +2811,6 @@ function applyAnalyticsFilters() {
     const rangeLimit = currentRangeFilter === 'all' ? allSessions.length : parseInt(currentRangeFilter);
     const daysLimit = currentTimeFilter === 'all' ? null : parseInt(currentTimeFilter);
     
-    console.log(`Applying filters: ${rangeLimit} sessions, ${daysLimit} days`);
     
     // Filter sessions based on both criteria
     let filteredSessions = [...allSessions];
@@ -2751,8 +2830,6 @@ function applyAnalyticsFilters() {
     filteredSessions = filteredSessions
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, rangeLimit);
-    
-    console.log(`Filtered to ${filteredSessions.length} sessions`);
     
     // Update ALL analytics with filtered data
     updateAllAnalytics(filteredSessions);
@@ -2920,15 +2997,15 @@ function updateSessionAllowanceUI() {
         // Disable generate button
         if (generateBtn) {
             generateBtn.disabled = true;
-            generateBtn.title = `Usage limit reached. Resets in ${userSessionAllowance.reset_in}`;
+            generateBtn.title = `Daily limit reached. Resets at midnight`;
         }
         
         // Show allowance display
         if (allowanceDisplay) {
             allowanceDisplay.innerHTML = `
                 <div class="allowance-warning">
-                    <small>⚠️ Limit reached </small>
-                    <small>Resets in ${userSessionAllowance.reset_in}</small>
+                    <small>⚠️ Daily limit reached </small>
+                    <small>Resets at midnight</small>
                 </div>
             `;
         }
@@ -2943,7 +3020,7 @@ function updateSessionAllowanceUI() {
             allowanceDisplay.innerHTML = `
                 <div class="allowance-info">
                     <small>Sessions remaining: ${userSessionAllowance.remaining}</small>
-                    <small>Resets in ${userSessionAllowance.reset_in}</small>
+                    <small>Resets at midnight</small>
                 </div>
             `;
         }
@@ -2970,7 +3047,6 @@ function updateGenerateButtonState() {
     
     // Safe check - only proceed if button exists
     if (!generateBtn) {
-        console.log('Generate button not found on this page');
         return;
     }
     
@@ -2996,7 +3072,6 @@ async function initSessionCount() {
     // Only run this on pages that have the generate button
     const generateBtn = document.getElementById('generate-btn');
     if (!generateBtn) {
-        console.log('Skipping session count init - no generate button on this page');
         return;
     }
     
@@ -3023,7 +3098,6 @@ async function refreshSessionCount() {
         if (data.status === 'success') {
             userSessionCount = data.session_count;
             updateGenerateButtonState();
-            console.log('Session count refreshed:', userSessionCount);
         }
     } catch (error) {
         console.error('Error refreshing session count:', error);
@@ -3045,7 +3119,7 @@ function checkTierStatus(silent = false) {
     return null; // No warning needed
 }
 
-// Sync user data to mobile menu
+// Function to sync data between desktop and mobile elements
 function syncMobileUserData() {
     console.log('Syncing mobile user data...');
     
@@ -3077,11 +3151,10 @@ function syncMobileUserData() {
         }
     }
 
-    // Sync sessions info
+    // Sync sessions info with reset message
     if (sessionsRemaining && mobileSessionsInfo && resetsIn) {
         const sessionsText = sessionsRemaining.textContent.replace('Sessions remaining: ', '');
-        const resetText = resetsIn.textContent.replace('Resets in: ', '');
-        mobileSessionsInfo.textContent = `Sessions: ${sessionsText} (resets ${resetText})`;
+        mobileSessionsInfo.textContent = `Sessions: ${sessionsText} (resets midnight)`;
     }
     
     console.log('✅ Mobile user data synced with tier styling');
@@ -3102,3 +3175,203 @@ window.addEventListener('resize', function() {
     document.body.classList.remove('has-topbar');
   }
 });
+
+// Collapsible Sidebar Functionality
+function initCollapsibleSidebar() {
+    const sidebar = document.getElementById('desktop-sidebar');
+    
+    if (!sidebar) return;
+    
+    let isExpanded = false;
+    let hoverTimeout = null;
+    let isUsingHover = false;
+    let touchExpanded = false;
+
+    // Function to determine initial state based on current screen size
+    function getInitialSidebarState() {
+        if (window.innerWidth >= 1200) {
+            return 'expanded'; // Large desktop - always expanded
+        } else if (window.innerWidth >= 1024) {
+            return 'collapsed'; // Medium desktop - collapsed by default
+        } else {
+            return 'hidden'; // Mobile - hidden (handled by mobile menu)
+        }
+    }
+
+    // Initialize sidebar state based on current screen size
+    function initializeSidebarState() {
+        const initialState = getInitialSidebarState();
+        
+        switch (initialState) {
+            case 'expanded':
+                sidebar.classList.add('expanded');
+                isExpanded = true;
+                touchExpanded = false;
+                isUsingHover = false;
+                break;
+            case 'collapsed':
+                sidebar.classList.remove('expanded');
+                isExpanded = false;
+                touchExpanded = false;
+                isUsingHover = false;
+                break;
+            case 'hidden':
+                sidebar.classList.remove('expanded');
+                isExpanded = false;
+                touchExpanded = false;
+                isUsingHover = false;
+                break;
+        }
+    }
+
+    // Hover functionality
+    sidebar.addEventListener('mouseenter', function() {
+        if (touchExpanded) return; // Don't interfere with touch mode
+        
+        // Only allow hover expansion in medium desktop range
+        if (window.innerWidth >= 1024 && window.innerWidth < 1200) {
+            hoverTimeout = setTimeout(() => {
+                if (!isExpanded) {
+                    expandSidebar();
+                    isUsingHover = true;
+                }
+            }, 200);
+        }
+    });
+    
+    sidebar.addEventListener('mouseleave', function(e) {
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+        }
+        
+        // Collapse when mouse leaves sidebar area (for hover mode only)
+        if (isUsingHover && isExpanded) {
+            // Small delay to ensure user intended to leave
+            setTimeout(() => {
+                if (isUsingHover) { // Double-check we're still in hover mode
+                    collapseSidebar();
+                    isUsingHover = false;
+                }
+            }, 100);
+        }
+    });
+    
+    // Touch/Click functionality
+    sidebar.addEventListener('click', function(e) {
+        const link = e.target.closest('.sidebar-link');
+        
+        // Only handle clicks in medium desktop range
+        if (window.innerWidth >= 1024 && window.innerWidth < 1200) {
+            if (!isExpanded) {
+                // First click - expand sidebar only, prevent navigation
+                e.preventDefault();
+                e.stopPropagation();
+                
+                expandSidebar();
+                touchExpanded = true;
+                isUsingHover = false;
+                return;
+            }
+            
+            // If sidebar is expanded and it's a link click, allow navigation and collapse
+            if (isExpanded && link) {
+                // Navigation will happen naturally via the link href
+                // Sidebar will collapse after a brief delay
+                setTimeout(() => {
+                    collapseSidebar();
+                    touchExpanded = false;
+                    isUsingHover = false;
+                }, 300);
+            }
+        }
+    });
+    
+    // Click outside to collapse
+    document.addEventListener('click', function(e) {
+        // Only handle in medium desktop range
+        if (window.innerWidth >= 1024 && window.innerWidth < 1200) {
+            // If sidebar is expanded and click is outside sidebar, collapse it
+            if (isExpanded && !sidebar.contains(e.target)) {
+                // Determine which mode we're in
+                if (touchExpanded) {
+                    // Touch mode - collapse immediately
+                    collapseSidebar();
+                    touchExpanded = false;
+                } else if (isUsingHover) {
+                    // Hover mode - collapse
+                    collapseSidebar();
+                    isUsingHover = false;
+                }
+            }
+        }
+    });
+    
+    // Also collapse on main content area clicks (additional safety)
+    document.querySelector('.main-content-wrapper')?.addEventListener('click', function(e) {
+        if (window.innerWidth >= 1024 && window.innerWidth < 1200 && 
+            isExpanded && !sidebar.contains(e.target)) {
+            collapseSidebar();
+            touchExpanded = false;
+            isUsingHover = false;
+        }
+    });
+    
+    // Improved hover behavior - keep expanded while mouse is in sidebar
+    sidebar.addEventListener('mousemove', function() {
+        // Reset any pending collapse when mouse moves within sidebar
+        if (hoverTimeout && isUsingHover) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+        }
+    });
+    
+    function expandSidebar() {
+        // Only expand if in the correct screen range
+        if (window.innerWidth >= 1024 && window.innerWidth < 1200) {
+            sidebar.classList.add('expanded');
+            isExpanded = true;
+        }
+    }
+    
+    function collapseSidebar() {
+        // Only collapse if in the correct screen range
+        if (window.innerWidth >= 1024 && window.innerWidth < 1200) {
+            sidebar.classList.remove('expanded');
+            isExpanded = false;
+        }
+    }
+    
+    // Handle window resize - RESET to initial state on resize
+    function handleResize() {
+        const previousWidth = window.previousWindowWidth || window.innerWidth;
+        const currentWidth = window.innerWidth;
+        
+        // Only reset state if we cross breakpoint boundaries
+        const crossedBreakpoint = 
+            (previousWidth < 1024 && currentWidth >= 1024) || // Mobile to medium desktop
+            (previousWidth >= 1024 && previousWidth < 1200 && currentWidth >= 1200) || // Medium to large desktop
+            (previousWidth >= 1200 && currentWidth < 1200 && currentWidth >= 1024) || // Large to medium desktop
+            (previousWidth >= 1024 && currentWidth < 1024); // Desktop to mobile
+        
+        if (crossedBreakpoint) {
+            initializeSidebarState(); // Reset to default state for new screen size
+        }
+        
+        // Store current width for next comparison
+        window.previousWindowWidth = currentWidth;
+    }
+    
+    // Use resize with debouncing for better performance
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(handleResize, 150); // Wait 150ms after resize finishes
+    });
+    
+    // Initialize state on page load
+    initializeSidebarState();
+    
+    // Also store initial width for future comparisons
+    window.previousWindowWidth = window.innerWidth;
+}

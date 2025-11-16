@@ -1,0 +1,352 @@
+/* pages/donate.css - Donation Page Styles */
+.donate-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-lg) 0;
+}
+
+.donate-intro,
+.donation-options,
+.impact-section,
+.thank-you-section {
+  margin-bottom: var(--space-2xl);
+}
+
+/* Donation Cards */
+.donate-card,
+.thank-you-card {
+  background: var(--bg-secondary);
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-color);
+}
+
+.donate-card h2 {
+  color: var(--primary-color);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-2xl);
+}
+
+.donate-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+
+/* Cost Breakdown */
+.cost-breakdown {
+  margin: var(--space-xl) 0;
+}
+
+.cost-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--primary-color);
+}
+
+.cost-icon {
+  font-size: var(--font-size-2xl);
+  margin-right: var(--space-md);
+  min-width: 40px;
+  text-align: center;
+}
+
+.cost-text strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-size-base);
+}
+
+.cost-text p {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.appeal-text {
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--primary-color);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+}
+
+.appeal-text strong {
+  color: var(--primary-color);
+}
+
+/* Donation Methods */
+.donate-title {
+  color: var(--text-primary);
+  margin-bottom: var(--space-lg);
+  font-size: var(--font-size-2xl);
+  text-align: center;
+}
+
+.donation-methods {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.donation-method {
+  background: var(--bg-secondary);
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.donation-method:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.method-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+  gap: var(--space-sm);
+}
+
+.method-icon {
+  font-size: var(--font-size-2xl);
+}
+
+.method-header h3 {
+  color: var(--text-primary);
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.method-instructions {
+  color: var(--text-secondary);
+}
+
+.method-instructions p {
+  margin-bottom: var(--space-md);
+  line-height: 1.5;
+}
+
+.payment-details {
+  background: var(--bg-primary);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  margin: var(--space-md) 0;
+  border: 1px solid var(--border-color);
+}
+
+.payment-details strong {
+  color: var(--primary-color);
+  font-size: var(--font-size-lg);
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+.method-note {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: var(--space-sm);
+}
+
+.contact-options {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-md) 0;
+  text-align: left;
+}
+
+.contact-options li {
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.contact-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.contact-link:hover {
+  color: var(--primary-light);
+  text-decoration: underline;
+}
+
+/* Impact Section */
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.impact-item {
+  text-align: center;
+  padding: var(--space-lg);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.impact-item:hover {
+  transform: translateY(-2px);
+}
+
+.impact-number {
+  display: block;
+  font-size: var(--font-size-3xl);
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: var(--space-sm);
+}
+
+.impact-item p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+/* Thank You Section */
+.thank-you-card {
+  text-align: center;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-color) 100%);
+  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.thank-you-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 1;
+}
+
+.thank-you-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.thank-you-card h2 {
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+}
+
+.thank-you-card p {
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+  opacity: 0.9;
+}
+
+.thank-you-card a {
+  color: var(--primary-light);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.thank-you-card a:hover {
+  text-decoration: underline;
+  color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .donate-page {
+    padding: var(--space-md);
+  }
+  
+  .donation-methods {
+    grid-template-columns: 1fr;
+  }
+  
+  .impact-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+  }
+  
+  .cost-item {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-sm);
+  }
+  
+  .cost-icon {
+    margin-right: 0;
+    margin-bottom: var(--space-sm);
+  }
+  
+  .method-header {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  
+  .contact-options li {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .donate-card,
+  .thank-you-card,
+  .donation-method {
+    padding: var(--space-lg);
+  }
+  
+  .impact-item {
+    padding: var(--space-md);
+  }
+}
+
+/* Animation for donation methods */
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+.donation-method:focus-within {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Enhanced focus states for accessibility */
+.donation-method:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}

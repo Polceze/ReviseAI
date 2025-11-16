@@ -120,9 +120,81 @@ body.has-topbar .auth-topbar {
     flex-direction: row;
   }
   
+  .desktop-sidebar {
+    width: 250px; /* Full width for large screens */
+    transition: width 0.3s ease;
+  }
+  
   .main-content-wrapper {
     margin-left: 250px; /* Sidebar width */
     width: calc(100% - 250px);
+    transition: margin-left 0.3s ease, width 0.3s ease;
+  }
+  
+  /* Collapsible behavior for medium desktop (1024px - 1199px) */
+  @media (max-width: 1199px) {
+    .desktop-sidebar {
+      width: 60px; /* Collapsed width - icons only */
+      position: relative;
+    }
+    
+    .desktop-sidebar.expanded {
+      width: 250px; /* Expanded width */
+    }
+    
+    .main-content-wrapper {
+      margin-left: 60px;
+      width: calc(100% - 60px);
+    }
+    
+    .desktop-sidebar.expanded ~ .main-content-wrapper {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    /* Hide text labels when collapsed */
+    .desktop-sidebar:not(.expanded) .sidebar-link-text {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    
+    /* Show text labels when expanded */
+    .desktop-sidebar.expanded .sidebar-link-text {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    /* Ensure icons remain centered when collapsed */
+    .desktop-sidebar:not(.expanded) .sidebar-link {
+      justify-content: center;
+      padding: var(--space-md) var(--space-sm);
+    }
+    
+    .desktop-sidebar:not(.expanded) .nav-icon {
+      margin-right: 0;
+    }
+  }
+  
+  /* Large desktop (1200px+) - always expanded */
+  @media (min-width: 1200px) {
+    .desktop-sidebar {
+      width: 250px !important; /* Force full width */
+    }
+    
+    .desktop-sidebar.expanded {
+      width: 250px !important;
+    }
+    
+    .main-content-wrapper {
+      margin-left: 250px !important;
+      width: calc(100% - 250px) !important;
+    }
+    
+    .sidebar-link-text {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
   }
   
   /* Hide mobile header on desktop */

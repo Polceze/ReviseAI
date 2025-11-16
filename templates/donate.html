@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/donate.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="donate-page main-body"> 
+    <header class="header">
+        <div class="title">
+            <h1>Support ReviseAI ❤️</h1>
+            <p class="tagline">Keep this free educational tool alive and growing</p>
+        </div>
+    </header>
+
+    <!-- Introduction Section -->
+    <div class="donate-intro">
+        <div class="donate-card">
+            <h2>Enjoying ReviseAI?</h2>
+            <p>This app is provided completely free because I believe in making quality education tools accessible to everyone. However, running ReviseAI isn't free for me:</p>
+            
+            <div class="cost-breakdown">
+                <div class="cost-item">
+                    <span class="cost-icon">🖥️</span>
+                    <div class="cost-text">
+                        <strong>Hosting & Servers</strong>
+                        <p>Keeping the app running 24/7</p>
+                    </div>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-icon">🤖</span>
+                    <div class="cost-text">
+                        <strong>AI Engine (Gemini API)</strong>
+                        <p>Costs per question generated</p>
+                    </div>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-icon">💾</span>
+                    <div class="cost-text">
+                        <strong>Data Storage</strong>
+                        <p>Storing your sessions and progress</p>
+                    </div>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-icon">⏰</span>
+                    <div class="cost-text">
+                        <strong>Development Time</strong>
+                        <p>Adding new features and fixing bugs</p>
+                    </div>
+                </div>
+            </div>
+
+            <p class="appeal-text">
+                <strong>Your donation helps:</strong> 
+                Keep ReviseAI free for all students, increase daily usage limits, 
+                add new features, and ensure the app stays online.
+            </p>
+        </div>
+    </div>
+
+    <!-- Donation Options -->
+    <div class="donation-options">
+        <h2 class="donate-title">Choose How to Donate</h2>
+        
+        <div class="donation-methods">
+            <!-- M-Pesa Option -->
+            <div class="donation-method">
+                <div class="method-header">
+                    <span class="method-icon">📱</span>
+                    <h3>M-Pesa</h3>
+                </div>
+                <div class="method-instructions">
+                    <p>Send to M-Pesa number:</p>
+                    <div class="payment-details">
+                        <strong>0110 100 455</strong>
+                    </div>
+                    <p class="method-note">Direct mobile money transfer</p>
+                </div>
+            </div>
+
+            <!-- PayPal Option -->
+            <div class="donation-method">
+                <div class="method-header">
+                    <span class="method-icon">🌎</span>
+                    <h3>PayPal</h3>
+                </div>
+                <div class="method-instructions">
+                    <p>Send to PayPal account:</p>
+                    <div class="payment-details">
+                        <strong>ochiengpol@gmail.com</strong>
+                    </div>
+                    <p class="method-note">International payments accepted</p>
+                </div>
+            </div>
+
+            <!-- Other Options -->
+            <div class="donation-method">
+                <div class="method-header">
+                    <span class="method-icon">💬</span>
+                    <h3>Other Methods</h3>
+                </div>
+                <div class="method-instructions">
+                    <p>Need another payment option?</p>
+                    <p>Contact me to arrange:</p>
+                    <ul class="contact-options">
+                        <li>📞 Phone: <strong>0110 100 455</strong></li>
+                        <li>📧 <a href="/contact" class="contact-link">Use the Contact Form</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Impact Section -->
+    <div class="impact-section">
+        <h2 class="donate-title">Your Impact</h2>
+        <div class="impact-grid">
+            <div class="impact-item">
+                <span class="impact-number">100%</span>
+                <p>of donations go directly to app improvements</p>
+            </div>
+            <div class="impact-item">
+                <span class="impact-number">∞</span>
+                <p>More students can learn for free</p>
+            </div>
+            <div class="impact-item">
+                <span class="impact-number">🚀</span>
+                <p>Faster feature development</p>
+            </div>
+            <div class="impact-item">
+                <span class="impact-number">📈</span>
+                <p>Higher daily usage limits for everyone</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thank You Message -->
+    <div class="thank-you-section">
+        <div class="thank-you-card">
+            <h2>Thank You for Your Support! 🙏</h2>
+            <p>Every donation, no matter the size, makes a difference and helps keep ReviseAI available for students everywhere.</p>
+            <p><strong>Note:</strong> After donating, please <a href="/contact">contact me</a> so I can thank you personally and potentially increase your usage limits as a thank you!</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
