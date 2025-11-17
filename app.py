@@ -1147,8 +1147,17 @@ def user_session_count():
     result = db.fetch_one("SELECT sessions_used_today FROM users WHERE id = %s", (user_id,))
     return jsonify({"status": "success", "session_count": result['sessions_used_today'] if result else 0})
 
+# Development server run
+# if __name__ == '__main__':
+#     # Use environment variable for host/port in production
+#     host = os.environ.get('HOST', '127.0.0.1')
+#     port = int(os.environ.get('PORT', 5000))
+#     app.run(host=host, port=port, debug=os.environ.get('DEBUG', 'False').lower() == 'true')
+
+# Production server run
 if __name__ == '__main__':
     # Use environment variable for host/port in production
-    host = os.environ.get('HOST', '127.0.0.1')
+    host = os.environ.get('HOST', '0.0.0.0')  # Changed to 0.0.0.0 for Railway
     port = int(os.environ.get('PORT', 5000))
-    app.run(host=host, port=port, debug=os.environ.get('DEBUG', 'False').lower() == 'true')
+    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+    app.run(host=host, port=port, debug=debug)
