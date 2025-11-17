@@ -10,15 +10,23 @@ class Database:
             'host': Config.DB_HOST,
             'database': Config.DB_NAME,
             'user': Config.DB_USER,
-            'password': Config.DB_PASSWORD
+            'password': Config.DB_PASSWORD,
+            'port': Config.DB_PORT,
+            # Aiven requires SSL
+            'ssl_ca': '/etc/ssl/certs/ca-certificates.crt',
+            'ssl_verify_cert': True
         }
         # Initialize connection pool
-        self.pool = MySQLConnectionPool(
-            pool_name="reviseAI_pool",
-            pool_size=5,
-            pool_reset_session=True,
-            **self.config
-        )
+        try:
+            self.pool = MySQLConnectionPool(
+                pool_name="reviseAI_pool",
+                pool_size=5,
+                pool_reset_session=True,
+                **self.config
+            )
+        except Error as e:
+            print(f"Database connection error: {e}")
+            self.pool = None
     
     def get_connection(self):
         """Get a connection from the pool"""
