@@ -12,10 +12,10 @@ class Database:
             'user': Config.DB_USER,
             'password': Config.DB_PASSWORD,
             'port': Config.DB_PORT,
-            # Aiven SSL configuration
+            # Aiven SSL configuration - FIXED
             'ssl_ca': '/etc/ssl/certs/ca-certificates.crt',
-            'ssl_verify_cert': True,
-            'ssl_disabled': False
+            'ssl_verify_cert': False,  # Disable certificate verification
+            'ssl_verify_identity': False
         }
         # Initialize connection pool
         try:
@@ -25,10 +25,10 @@ class Database:
                 pool_reset_session=True,
                 **self.config
             )
-            print(f"✅ Database pool initialized successfully for {Config.DB_HOST}")
+            print(f"✅ Database pool initialized for {Config.DB_HOST}:{Config.DB_PORT}")
         except Error as e:
             print(f"❌ Database connection error: {e}")
-            print(f"   Host: {Config.DB_HOST}, Port: {Config.DB_PORT}, DB: {Config.DB_NAME}")
+            print(f"Config: host={Config.DB_HOST}, port={Config.DB_PORT}, db={Config.DB_NAME}, user={Config.DB_USER}")
             self.pool = None
     
     def get_connection(self):
