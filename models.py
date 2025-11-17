@@ -12,9 +12,10 @@ class Database:
             'user': Config.DB_USER,
             'password': Config.DB_PASSWORD,
             'port': Config.DB_PORT,
-            # Aiven requires SSL
+            # Aiven SSL configuration
             'ssl_ca': '/etc/ssl/certs/ca-certificates.crt',
-            'ssl_verify_cert': True
+            'ssl_verify_cert': True,
+            'ssl_disabled': False
         }
         # Initialize connection pool
         try:
@@ -24,8 +25,10 @@ class Database:
                 pool_reset_session=True,
                 **self.config
             )
+            print(f"✅ Database pool initialized successfully for {Config.DB_HOST}")
         except Error as e:
-            print(f"Database connection error: {e}")
+            print(f"❌ Database connection error: {e}")
+            print(f"   Host: {Config.DB_HOST}, Port: {Config.DB_PORT}, DB: {Config.DB_NAME}")
             self.pool = None
     
     def get_connection(self):
@@ -69,10 +72,30 @@ class Database:
             if conn and conn.is_connected():
                 conn.close()
 
+    def test_connection(self):
+        """Test database connection"""
+        try:
+            conn = self.get_connection()
+            if conn:
+                print("✅ Database connection successful")
+                conn.close()
+                return True
+            else:
+                print("❌ Database connection failed")
+                return False
+        except Exception as e:
+            print(f"❌ Database connection test failed: {e}")
+            return False
+
     def initialize_database(self):
         """Create necessary tables if they don't exist"""
+        if self.pool is None:
+            print("❌ Cannot initialize database: No connection pool available")
+            return False
+        
         connection = self.get_connection()
         if connection is None:
+            print("❌ Cannot initialize database: Failed to get connection")
             return False
         
         cursor = None

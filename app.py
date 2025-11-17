@@ -25,7 +25,17 @@ mail = Mail(app)
 
 # Initialize database
 db = Database()
-db.initialize_database()
+
+# Test connection before initializing
+if db.pool is None:
+    print("❌ CRITICAL: Database connection pool failed to initialize")
+    print("⚠️ Application will start but database features will be disabled")
+else:
+    print("✅ Database connection pool created successfully")
+    if db.initialize_database():
+        print("✅ Database tables initialized successfully")
+    else:
+        print("❌ Database table initialization failed")
 
 session_cache = TTLCache(maxsize=100, ttl=60)  # 60-second TTL, max 100 users
 
