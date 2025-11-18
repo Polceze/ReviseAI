@@ -8,6 +8,8 @@ import requests
 import json
 import re
 from cachetools import TTLCache
+import threading 
+from threading import Thread
 
 
 load_dotenv()
@@ -1090,7 +1092,21 @@ def debug_pool_status():
 def contact_page():
     return render_template('contact.html')
 
-# AJAX endpoint to receive contact form and send email
+
+def send_async_email(msg):
+    """Send email in a background thread to avoid timeouts"""
+    def send_thread(msg):
+        try:
+            mail.send(msg)
+            print("✅ Email sent successfully via background thread")
+        except Exception as e:
+            print(f"❌ Background email failed: {str(e)}")
+    
+    # Start email sending in background thread
+    thread = Thread(target=send_thread, args=(msg,))
+    thread.daemon = True  # Allows thread to be killed when main process exits
+    thread.start()
+
 @app.route('/contact', methods=['POST'])
 def send_contact():
     try:
@@ -1099,77 +1115,45 @@ def send_contact():
         email = data.get('email', '').strip()
         message_body = data.get('message', '').strip()
 
-        # Enhanced validation
+        # Basic server-side validation
         if not name or not email or not message_body:
-            return jsonify({
-                'status': 'error', 
-                'message': 'Please provide name, email and message.'
-            }), 400
-
-        if not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-            return jsonify({
-                'status': 'error', 
-                'message': 'Please provide a valid email address.'
-            }), 400
+            return jsonify({'status': 'error', 'message': 'Please provide name, email and message.'}), 400
 
         # Build email
         recipients = [os.environ.get('CONTACT_DESTINATION_EMAIL', app.config.get('MAIL_USERNAME'))]
-        subject = f"ReviseAI Contact Form: Message from {name}"
-        
-        # HTML email for better formatting
-        html_body = f"""
-        <html>
-            <body>
-                <h2>New Contact Form Submission</h2>
-                <p><strong>Name:</strong> {name}</p>
-                <p><strong>Email:</strong> {email}</p>
-                <p><strong>Message:</strong></p>
-                <p>{message_body}</p>
-                <hr>
-                <p><em>Sent from ReviseAI contact form</em></p>
-            </body>
-        </html>
-        """
-        
-        text_body = f"""
-        New Contact Form Submission
-        
-        Name: {name}
-        Email: {email}
-        Message:
-        {message_body}
-        
-        Sent from ReviseAI contact form
-        """
+        subject = f"Contact form message from {name}"
+        body = f"Name: {name}\nEmail: {email}\n\nMessage:\n{message_body}"
 
         msg = Message(
-            subject=subject,
-            sender=app.config.get('MAIL_DEFAULT_SENDER'),
-            recipients=recipients,
-            html=html_body,
-            body=text_body,
+            subject=subject, 
+            sender=app.config.get('MAIL_DEFAULT_SENDER'), 
+            recipients=recipients, 
+            body=body, 
             reply_to=email
         )
         
-        mail.send(msg)
+        # Use async sending to prevent timeouts
+        send_async_email(msg)
         
-        # Log successful send (for Render logs)
-        print(f"✅ Contact form email sent successfully from {email}")
-        
-        return jsonify({
-            'status': 'success', 
-            'message': 'Message sent successfully! We\'ll get back to you soon.'
-        }), 200
+        return jsonify({'status': 'success', 'message': 'Message sent successfully!'}), 200
 
     except Exception as e:
-        # Detailed error logging for debugging
-        error_msg = f"Email sending failed: {str(e)}"
-        print(f"❌ {error_msg}")
-        
-        return jsonify({
-            'status': 'error', 
-            'message': 'Failed to send message. Please try again later.'
-        }), 500
+        print("Error in contact endpoint:", e)
+        return jsonify({'status': 'error', 'message': 'Failed to send message. Please try again later.'}), 500
+
+# Temporary route to debug email configuration
+@app.route('/debug/email-config')
+def debug_email_config():
+    """Check email configuration without sending"""
+    config_status = {
+        'MAIL_SERVER': app.config.get('MAIL_SERVER'),
+        'MAIL_PORT': app.config.get('MAIL_PORT'),
+        'MAIL_USE_TLS': app.config.get('MAIL_USE_TLS'),
+        'MAIL_USERNAME': 'SET' if app.config.get('MAIL_USERNAME') else 'MISSING',
+        'MAIL_PASSWORD': 'SET' if app.config.get('MAIL_PASSWORD') else 'MISSING',
+        'MAIL_DEFAULT_SENDER': app.config.get('MAIL_DEFAULT_SENDER'),
+    }
+    return jsonify(config_status)
 
 @app.route('/user/session-allowance')
 def user_session_allowance():
