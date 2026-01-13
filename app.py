@@ -4,22 +4,19 @@ import os
 from dotenv import load_dotenv
 from models import Database
 from datetime import datetime, timezone, timedelta
-import requests
 import json
 import re
 from cachetools import TTLCache
-import threading 
 from threading import Thread
 
 
-load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
 
 # Configure Flask-Mail
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', True)
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT'))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS')
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', app.config['MAIL_USERNAME'])
@@ -27,6 +24,8 @@ mail = Mail(app)
 
 # Initialize database
 db = Database()
+if not db or not db.pool:
+    raise RuntimeError("Database failed to initialize")
 
 # Test connection before initializing
 if db.pool is None:

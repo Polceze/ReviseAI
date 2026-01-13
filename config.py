@@ -4,21 +4,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # # Basic configuration
-    # SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-for-study-buddy'
     
     # # Database configuration
-    # DB_HOST = os.environ.get('DB_HOST') or 'localhost'
-    # DB_USER = os.environ.get('DB_USER') or 'reviseAI_user'
-    # DB_PASSWORD = os.environ.get('DB_PASSWORD') or 'password123'
-    # DB_NAME = os.environ.get('DB_NAME') or 'reviseAI_DB'
-
-    # MySQL configuration - will use environment variables
-    DB_HOST = os.environ.get('DB_HOST', 'localhost')
-    DB_NAME = os.environ.get('DB_NAME', 'reviseai')
-    DB_USER = os.environ.get('DB_USER', 'root')
-    DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
-    DB_PORT = int(os.environ.get('DB_PORT', 3306))
+    DB_HOST = os.environ.get('DB_HOST')
+    DB_USER = os.environ.get('DB_USER')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD')
+    DB_NAME = os.environ.get('DB_NAME')
     
     # Flask configuration
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')

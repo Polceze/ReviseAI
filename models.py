@@ -10,13 +10,12 @@ class Database:
             'host': Config.DB_HOST,
             'database': Config.DB_NAME,
             'user': Config.DB_USER,
-            'password': Config.DB_PASSWORD,
-            'port': Config.DB_PORT,
-            # Aiven SSL configuration - FIXED
-            'ssl_ca': '/etc/ssl/certs/ca-certificates.crt',
-            'ssl_verify_cert': False,  # Disable certificate verification
-            'ssl_verify_identity': False
+            'password': Config.DB_PASSWORD
         }
+
+        if not all(self.config.values()):
+            raise RuntimeError(f"Missing DB config: {self.config}")
+    
         # Initialize connection pool
         try:
             self.pool = MySQLConnectionPool(
@@ -25,10 +24,10 @@ class Database:
                 pool_reset_session=True,
                 **self.config
             )
-            print(f"✅ Database pool initialized for {Config.DB_HOST}:{Config.DB_PORT}")
+            print(f"✅ Database pool initialized for {Config.DB_HOST}")
         except Error as e:
             print(f"❌ Database connection error: {e}")
-            print(f"Config: host={Config.DB_HOST}, port={Config.DB_PORT}, db={Config.DB_NAME}, user={Config.DB_USER}")
+            print(f"Config: host={Config.DB_HOST}, db={Config.DB_NAME}, user={Config.DB_USER}")
             self.pool = None
     
     def get_connection(self):

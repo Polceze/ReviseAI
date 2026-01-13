@@ -4,12 +4,13 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-2.0%2B-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
-[![Anthropic Claude](https://img.shields.io/badge/Anthropic%20Claude-3.5-purple?style=for-the-badge&logo=anthropic&logoColor=white)](https://anthropic.com)
-[![Railway](https://img.shields.io/badge/Deployed%20on-Render-0B0D0E?style=for-the-badge&logo=render&logoColor=white)](https://render.com)
+[![Claude 3 Haiku API](https://img.shields.io/badge/Claude%203%20Haiku-API-6B4EFF?style=for-the-badge&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude)
+[![PythonAnywhere](https://img.shields.io/badge/Hosted%20on-PythonAnywhere-306998?style=for-the-badge&logo=python&logoColor=white)](https://www.pythonanywhere.com/)
+
 
 > An intelligent study companion that generates interactive flashcards from your notes, making learning more accessible and effective for everyone.
 
-## 🌟 Supporting Sustainable Development Goal 4
+## Supporting Sustainable Development Goal 4
 
 ReviseAI directly contributes to **SDG 4: Quality Education** by:
 - Making study materials creation accessible to all learners
@@ -18,7 +19,7 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 - Using AI to enhance educational content quality
 - Promoting lifelong learning opportunities
 
-## 🚀 Live Demo
+## Live Demo
 
 **Live Application:** [ReviseAI on Render](https://reviseai.onrender.com)
 
@@ -50,7 +51,7 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 - `cachetools` - In-memory caching
 - `requests` - HTTP client for API calls
 
-## ✨ Features
+## Features
 
 ### 🎯 Core Functionality
 - **AI-Powered Flashcard Generation**: Convert study notes into interactive quizzes using Anthropic Claude AI
@@ -77,7 +78,7 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 - **Touch & Click Support**: Universal interaction patterns
 - **Landscape Optimization**: Special CSS for mobile landscape mode
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 ```text
 AI-study-buddy/
 ├─ static/
@@ -131,7 +132,7 @@ AI-study-buddy/
 - **Modular Architecture:** Easy to extend with new question types or AI providers
 - **Environment Configuration:** Ready for different deployment scenarios
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -179,7 +180,7 @@ python app.py
 # Access at http://localhost:5000
 ```
 
-## 🚀 Deployment
+## Deployment
 
 ### Backend Deployment on Render
 
@@ -282,7 +283,8 @@ function initAllCharts() {
 - **Advanced Analytics:** Machine learning insights on study patterns
 
 ## 📄 License
-MIT License - feel free to use this project for learning and development purposes.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
+Feel free to use this project for learning and development purposes.
 
 ## 🤝 Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
