@@ -19,9 +19,9 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 - Using AI to enhance educational content quality
 - Promoting lifelong learning opportunities
 
-## Live Demo
+## Live Site
 
-**Live Application:** [ReviseAI on Render](https://reviseai.onrender.com)
+[ReviseAI on PythonAnywhere](https://reviseai.pythonanywhere.com/)
 
 ## 🛠️ Tech Stack
 
