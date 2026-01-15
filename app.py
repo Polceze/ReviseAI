@@ -313,37 +313,51 @@ def generate_questions_with_claude(notes, num_questions=6, question_type="mcq", 
         return None, "api_error"
 
 def build_claude_prompt(notes, num_questions, question_type, difficulty):
-    """Build optimized prompt for Claude with clear question type instructions"""
-    truncated_notes = notes[:1500]
-    
-    # More specific instructions for each question type
-    type_instructions = {
-        "mcq": f"""Generate exactly {num_questions} multiple-choice questions. Each question must have exactly 4 options (A, B, C, D).
-- Use meaningful, distinct options
-- Avoid "All of the above" or "None of the above" unless absolutely necessary
-- Ensure only one correct answer per question""",
-        
-        "tf": f"""Generate exactly {num_questions} True/False questions. Each question must have exactly 2 options: ["True", "False"].
-- Questions should be clear factual statements that can be definitively true or false
-- Use the exact options: "True" and "False" (capitalized)"""
-    }
-    
-    difficulty_instructions = {
-        "normal": "Focus on factual recall and basic understanding from the notes.",
-        "difficult": "Test deeper understanding, analysis, and application of concepts from the notes."
-    }
-    
-    return f"""Create a quiz based on these study notes. Follow these instructions carefully:
+    """Build optimized prompt for Claude with topic-vs-notes handling"""
 
+    truncated_notes = notes[:1500]
+
+    type_instructions = {
+        "mcq": f"""Generate exactly {num_questions} multiple-choice questions.
+Each question must have exactly 4 options (A, B, C, D).
+- Options must be meaningful and distinct
+- Avoid "All of the above" or "None of the above"
+- Only one option must be correct""",
+
+        "tf": f"""Generate exactly {num_questions} True/False questions.
+Each question must have exactly 2 options: ["True", "False"].
+- Statements must be clearly and definitively true or false
+- Use the exact strings "True" and "False" (capitalized)"""
+    }
+
+    difficulty_instructions = {
+        "normal": "Target basic factual knowledge and general understanding.",
+        "difficult": "Make the questions more obscure, indirect, and challenging. Target deeper understanding, reasoning, and application."
+    }
+
+    return f"""
+You are an expert educational assistant creating quiz questions.
+
+INPUT INTERPRETATION RULES (IMPORTANT):
+- If the input content is detailed notes, explanations, or summaries, base the questions strictly on that material.
+- If the input content is a short phrase, keyword, or subject name (for example: "general knowledge", "computer networks", "world history"),
+  treat it as a topic and generate questions based on widely accepted knowledge in that domain.
+- Do NOT generate questions about the literal wording of the input itself.
+
+QUESTION REQUIREMENTS:
 {type_instructions.get(question_type, type_instructions['mcq'])}
 
+DIFFICULTY:
 {difficulty_instructions.get(difficulty, difficulty_instructions['normal'])}
 
-CRITICAL: All questions must be of the same type ({question_type.upper()}).
-- For MCQ: All questions must have exactly 4 options
-- For True/False: All questions must have exactly 2 options: "True" and "False"
+CRITICAL CONSTRAINTS:
+- All questions must be of the same type: {question_type.upper()}
+- Follow the option count rules exactly
+- Only one correct answer per question
 
-Return ONLY valid JSON in this exact format:
+OUTPUT FORMAT:
+Return ONLY valid JSON in the following exact structure. No extra text.
+
 {{
   "questions": [
     {{
@@ -354,43 +368,18 @@ Return ONLY valid JSON in this exact format:
   ]
 }}
 
-NOTES:
+INPUT CONTENT:
 {truncated_notes}
 
-Important:
-- correctAnswer must be the index (0, 1, 2, or 3 for MCQ; 0 or 1 for True/False)
-- Questions must be directly based on the provided notes
-- Return ONLY the JSON, no additional text or explanations
-- Ensure consistent question type throughout"""
-
-def build_optimized_prompt(notes, num_questions, question_type, difficulty):
-    """Build optimized prompt with reduced length"""
-    # Truncate notes more aggressively
-    truncated_notes = notes[:1500]  # Reduced from 2000
-    
-    type_instructions = {
-        "mcq": f"Generate {num_questions} multiple-choice questions with 4 options each.",
-        "tf": f"Generate {num_questions} True/False questions with 2 options each."
-    }
-    
-    difficulty_instructions = {
-        "normal": "Focus on factual recall and basic understanding.",
-        "difficult": "Test deeper understanding and application."
-    }
-    
-    return f"""
-Create a quiz based on these notes. Keep questions concise.
-
-{type_instructions.get(question_type, type_instructions['mcq'])}
-{difficulty_instructions.get(difficulty, difficulty_instructions['normal'])}
-
-NOTES: {truncated_notes}
-
-Return as JSON: {{"questions": [{{"question": "...", "options": ["A","B"], "correctAnswer": 0}}]}}
+FINAL CHECKS:
+- correctAnswer must be an index (0–3 for MCQ, 0–1 for True/False)
+- Questions must be appropriate to the interpreted subject or notes
+- Return ONLY the JSON
 """
 
 def process_api_response(response_text, num_questions, question_type, difficulty):
     """Process API response with question type validation"""
+    print(f"process_api_response called with question_type {question_type} and difficulty {difficulty}")
     try:
         # Find JSON more efficiently
         json_str = extract_json_from_text(response_text)
