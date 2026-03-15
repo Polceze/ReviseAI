@@ -1,4 +1,4 @@
-# ReviseAI - AI Study Assistant 🎓
+# ReviseAI - AI Study Assistant
 
 [![SDG 4 - Quality Education](https://img.shields.io/badge/SDG-4_Quality_Education-0A96D6?style=for-the-badge&logo=un&logoColor=white)](https://sdgs.un.org/goals/goal4)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
