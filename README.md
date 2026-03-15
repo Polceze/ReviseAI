@@ -23,7 +23,7 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 
 [ReviseAI on PythonAnywhere](https://reviseai.pythonanywhere.com/)
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **Python 3.8+** - Core programming language
@@ -53,26 +53,26 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 
 ## Features
 
-### 🎯 Core Functionality
+### Core Functionality
 - **AI-Powered Flashcard Generation**: Convert study notes into interactive quizzes using Anthropic Claude AI
 - **Multiple Question Types**: Support for Multiple Choice (MCQ) and True/False questions
 - **Adaptive Difficulty**: Normal and Difficult question levels
 - **Smart Session Management**: Save, review, and manage study sessions with detailed analytics
 - **Progress Tracking**: Visual analytics with score trends and performance metrics
 
-### 📊 Advanced Analytics
+### Advanced Analytics
 - **Performance Charts**: Score progression and time metrics using Chart.js
 - **Question Type Analysis**: Breakdown of MCQ vs True/False performance
 - **Difficulty Insights**: Accuracy comparison between normal and difficult questions
 - **Session Duration Tracking**: Study time analytics and efficiency metrics
 
-### 🔐 User Management
+### User Management
 - **Email-based Authentication**: Simple login with session management
 - **Daily Session Limits**: 10 sessions per day for free tier users
 - **Tier System**: Ready for premium feature expansion
 - **Secure Sessions**: Flask session management with secret key
 
-### 📱 Responsive Design
+### Responsive Design
 - **Mobile-First Approach**: Optimized for mobile devices
 - **Tablet & Desktop Layouts**: Adaptive sidebar navigation
 - **Touch & Click Support**: Universal interaction patterns
@@ -138,7 +138,6 @@ AI-study-buddy/
 - Python 3.8+
 - MySQL 8.0+
 - Anthropic Claude API key
-- Render account (for deployment)
 
 ### Installation
 #### 1. Clone the repository
@@ -180,73 +179,8 @@ python app.py
 # Access at http://localhost:5000
 ```
 
-## Deployment
 
-### Backend Deployment on Render
-
-1. **Connect your repository** to Render
-2. **Create a Web Service** with the following settings:
-   - **Build Command:** pip install -r requirements.txt
-   - **Start Command:** python app.py
-   - **Environment:** Python 3.8+
-3. Set environment variables in Render dashboard:
-
-```text
-ANTHROPIC_API_KEY=your_claude_api_key
-SECRET_KEY=your_flask_secret_key
-MAIL_USERNAME=your_email@gmail.com
-MAIL_PASSWORD=your_app_password
-```
-
-### Database Setup with Aiven
-**1. Create Aiven account** at aiven.io
-**2. Create MySQL service:**
-   - **Select MySQL 8.0** as service type
-   - Choose your preferred cloud provider and region
-   - Select appropriate plan based on your needs
-**3. Get connection details** from Aiven console:
-   - Host, Port, Database name, Username, Password
-**4. Set database environment variables** in Render:
-```text
-DB_HOST=your-aiven-mysql-host.aivencloud.com
-DB_PORT=your-mysql-port
-DB_NAME=defaultdb
-DB_USER=avnadmin
-DB_PASSWORD=your-aiven-password
-```
-
-### Automatic Deployment
-- **Continuous Deployment:** Render automatically deploys on git push to main branch
-- **Build Logs:** Monitor build process in Render dashboard
-- **Health Checks:** Render provides automatic health monitoring
-- **Custom Domains:** Add your custom domain in Render settings
-
-### Environment Configuration
-Create a `.env` file for local development or set these in Render environment variables:
-
-```env
-# AI Configuration
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-
-# Database Configuration (Aiven MySQL)
-DB_HOST=your-aiven-host.aivencloud.com
-DB_PORT=2768
-DB_NAME=defaultdb
-DB_USER=avnadmin
-DB_PASSWORD=your_aiven_password
-
-# Flask Configuration
-SECRET_KEY=your_secret_key_here
-DEBUG=False
-
-# Email Configuration (Optional)
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=your_email@gmail.com
-MAIL_PASSWORD=your_app_password
-```
-
-## 🔧 Key Features Implementation
+## Key Features Implementation
 
 ### AI-Powered Question Generation
 ```python
@@ -282,11 +216,11 @@ function initAllCharts() {
 - **Multi-modal AI:** Image and document processing
 - **Advanced Analytics:** Machine learning insights on study patterns
 
-## 📄 License
+## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
 Feel free to use this project for learning and development purposes.
 
-## 🤝 Contributing
+## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
