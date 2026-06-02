@@ -23,7 +23,14 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/rotation.css') }}">
         {% block styles %}{% endblock %}
         
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- Modular JavaScript -->
+        <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/flashcards.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/sessions.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     </head>
     <body>
         <!-- Mobile Header (hidden on desktop) -->
