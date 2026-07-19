@@ -11,6 +11,8 @@ class SessionService:
     
     def check_daily_limit(self, user_id: int) -> Dict[str, Any]:
         """Check if user has exceeded daily session limit"""
+        conn = None
+        cursor = None
         try:
             conn = self.db.get_connection()
             if not conn:
@@ -27,7 +29,7 @@ class SessionService:
                 return self._default_allowance()
             
             sessions_used = user['sessions_used_today'] or 0
-            needs_reset = user['last_session_date'] is None or user['last_session_date'].date() != user['today']
+            needs_reset = user['last_session_date'] is None or user['last_session_date'] != user['today']
             
             if needs_reset:
                 sessions_used = 0
@@ -36,9 +38,6 @@ class SessionService:
                     WHERE id = %s
                 """, (user_id,))
                 conn.commit()
-            
-            cursor.close()
-            conn.close()
             
             return {
                 "allowed": sessions_used < 10,
@@ -52,9 +51,16 @@ class SessionService:
         except Exception as e:
             print(f"Error checking daily limit: {e}")
             return self._default_allowance()
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
     
     def increment_session_count(self, user_id: int) -> bool:
         """Increment user's session count after successful generation"""
+        conn = None
+        cursor = None
         try:
             conn = self.db.get_connection()
             if not conn:
@@ -69,8 +75,6 @@ class SessionService:
                 WHERE id = %s
             """, (user_id,))
             conn.commit()
-            cursor.close()
-            conn.close()
             
             self.invalidate_cache(user_id)
             return True
@@ -78,6 +82,11 @@ class SessionService:
         except Exception as e:
             print(f"Error incrementing session count: {e}")
             return False
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
     
     def get_user_sessions(self, user_id: int) -> list:
         """Get sessions from cache or database"""

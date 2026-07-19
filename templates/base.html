@@ -24,6 +24,7 @@
         {% block styles %}{% endblock %}
         
         <!-- Modular JavaScript -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
         <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
         <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
         <script src="{{ url_for('static', filename='js/flashcards.js') }}"></script>
@@ -132,7 +133,7 @@
         </nav>
 
         <!-- Existing Top Bar (kept for backward compatibility) -->
-        <div id="auth-topbar" class="auth-topbar" style="display: none;">
+        <div id="auth-topbar" class="auth-topbar">
             <div class="topbar-background">
                 <!-- Logo positioned independently -->
                 <div class="topbar-logo-container">
@@ -267,6 +268,5 @@
             </div>
         </div>
 
-        <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     </body>
 </html>

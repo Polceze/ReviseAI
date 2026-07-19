@@ -564,7 +564,7 @@ class Database:
             today = datetime.now().date()
             
             # Reset counter if it's a new day
-            if last_date is None or last_date.date() != today:
+            if last_date is None or last_date != today:
                 remaining_sessions = 10
             else:
                 remaining_sessions = max(0, 10 - sessions_used_today)
