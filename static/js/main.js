@@ -16,8 +16,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Initialize charts on analytics page
         if (window.location.pathname === '/analytics') {
-            initAllCharts();
-            setTimeout(() => applyAnalyticsFilters(), 500);
+            try {
+                initAllCharts();
+                setTimeout(() => applyAnalyticsFilters(), 500);
+            } catch (error) {
+                console.error('Error initializing analytics charts:', error);
+            }
         }
     } else {
         disableAppInterface();
@@ -83,11 +87,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Resize handler for card heights
     window.addEventListener('resize', debounce(setUniformCardHeights, 200));
     
-    // Window resize handler for topbar visibility
-    window.addEventListener('resize', function() {
-        const topbar = document.getElementById('auth-topbar');
-        if (topbar && currentUser) {
-            topbar.style.display = window.innerWidth >= 1024 ? 'block' : 'none';
-        }
-    });
+    // Topbar visibility (desktop/tablet only, and only when signed in).
+    function updateTopbarVisibility() {
+        const shouldShow = !!currentUser && window.innerWidth >= 1024;
+        document.body.classList.toggle('has-topbar', shouldShow);
+    }
+
+    // Load topbar on desktop
+    updateTopbarVisibility();
+    window.addEventListener('resize', updateTopbarVisibility);
 });

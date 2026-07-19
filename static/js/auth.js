@@ -117,6 +117,18 @@ async function updateTierInfo() {
             
             const sessionsEl = document.getElementById('sessions-remaining');
             if (sessionsEl) sessionsEl.textContent = `Sessions remaining: ${info.remaining_sessions}`;
+
+            const resetsEl = document.getElementById('resets-in');
+            if (resetsEl) resetsEl.textContent = `Resets in: ${info.reset_in}`;
+
+            const topbarEmailEl = document.getElementById('topbar-email');
+            if (topbarEmailEl) topbarEmailEl.textContent = currentUser.email;
+
+            // Mobile menu shows its own copies of this info - keep them in sync
+            const mobileSessionsEl = document.getElementById('mobile-sessions-info');
+            if (mobileSessionsEl) mobileSessionsEl.textContent = `Sessions: ${info.remaining_sessions} remaining`;
+
+            if (typeof syncMobileUserData === 'function') syncMobileUserData();
         }
     } catch (error) {
         console.error('Error fetching tier info:', error);
