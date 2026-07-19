@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-2.0%2B-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
-[![Claude 3 Haiku API](https://img.shields.io/badge/Claude%203%20Haiku-API-6B4EFF?style=for-the-badge&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude)
+[![Groq API](https://img.shields.io/badge/Groq%20Llama%203.3-API-F55036?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com)
 [![PythonAnywhere](https://img.shields.io/badge/Hosted%20on-PythonAnywhere-306998?style=for-the-badge&logo=python&logoColor=white)](https://www.pythonanywhere.com/)
 
 
@@ -29,7 +29,7 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 - **Python 3.8+** - Core programming language
 - **Flask 2.0+** - Web framework with Jinja2 templating
 - **MySQL 8.0+** - Relational database with connection pooling
-- **Anthropic Claude API** - AI-powered question generation (claude-3-haiku model)
+- **Groq API** - AI-powered question generation (llama-3.3-70b-versatile model)
 - **Flask-Mail** - Email functionality for contact forms
 - **python-dotenv** - Environment variable management
 
@@ -47,14 +47,14 @@ ReviseAI directly contributes to **SDG 4: Quality Education** by:
 
 ### Key Libraries & Dependencies
 - `mysql-connector-python` - Database connectivity
-- `anthropic` - Claude AI API integration
+- `groq` - Groq LLM API integration
 - `cachetools` - In-memory caching
 - `requests` - HTTP client for API calls
 
 ## Features
 
 ### Core Functionality
-- **AI-Powered Flashcard Generation**: Convert study notes into interactive quizzes using Anthropic Claude AI
+- **AI-Powered Flashcard Generation**: Convert study notes into interactive quizzes using an AI API
 - **Multiple Question Types**: Support for Multiple Choice (MCQ) and True/False questions
 - **Adaptive Difficulty**: Normal and Difficult question levels
 - **Smart Session Management**: Save, review, and manage study sessions with detailed analytics
@@ -137,7 +137,7 @@ AI-study-buddy/
 ### Prerequisites
 - Python 3.8+
 - MySQL 8.0+
-- Anthropic Claude API key
+- Groq API key (from console.groq.com)
 
 ### Installation
 #### 1. Clone the repository
@@ -159,7 +159,8 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Edit .env with your settings:
-# ANTHROPIC_API_KEY=your_claude_api_key
+# GROQ_API_KEY=your_groq_api_key
+# GROQ_MODEL=llama-3.3-70b-versatile
 # DB_HOST=your_mysql_host
 # DB_USER=your_mysql_user
 # DB_PASSWORD=your_mysql_password
@@ -179,8 +180,8 @@ python3 app.py
 
 ### AI-Powered Question Generation
 ```python
-def generate_questions_with_claude(notes, num_questions=6, question_type="mcq", difficulty="normal"):
-    # Uses Anthropic Claude API with optimized prompts
+def generate_questions(notes, num_questions=6, question_type="mcq", difficulty="normal"):
+    # Uses an AI API ( Groq Llama 3.3) with optimized prompts
     # Includes answer balancing and validation
 ```
 

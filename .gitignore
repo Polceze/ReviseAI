@@ -30,3 +30,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# dev notes
+dev-notes.txt
