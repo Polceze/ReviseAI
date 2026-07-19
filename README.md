@@ -149,7 +149,7 @@ cd ReviseAI
 #### 2. Set up Python environment
 
 ```bash 
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
@@ -167,15 +167,10 @@ cp .env.example .env
 # SECRET_KEY=your_flask_secret_key
 ```
 
-#### 4.Initialize database
+#### 4.Run the application
 ```bash
 # The application will automatically create tables on first run
-python app.py
-```
-
-#### 5. Run the application
-```bash
-python app.py
+python3 app.py
 # Access at http://localhost:5000
 ```
 
