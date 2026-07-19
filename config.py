@@ -22,8 +22,9 @@ class Config:
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
     
-    # Anthropic Claude API
-    ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
+    # Groq API
+    GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
+    GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')
     
     # Contact form destination
     CONTACT_DESTINATION_EMAIL = os.environ.get('CONTACT_DESTINATION_EMAIL')

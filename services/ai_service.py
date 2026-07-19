@@ -1,46 +1,50 @@
 import os
 import json
 import random
-import anthropic
+import groq
 from typing import List, Dict, Optional, Tuple
 
 class AIService:
-    """Handles all AI-related operations: Claude API, prompt building, answer balancing"""
-    
+    """Handles all AI-related operations: API, prompt building, answer balancing"""
+
     def __init__(self):
-        self.api_key = os.environ.get('ANTHROPIC_API_KEY')
-        self.client = anthropic.Anthropic(api_key=self.api_key) if self.api_key else None
+        self.api_key = os.environ.get('GROQ_API_KEY')
+        self.model = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')
+        self.client = groq.Groq(api_key=self.api_key) if self.api_key else None
     
     def generate_questions(self, notes: str, num_questions: int = 6, 
                           question_type: str = "mcq", difficulty: str = "normal") -> Tuple[Optional[List[Dict]], str]:
-        """Generate quiz questions using Claude API"""
+        """Generate quiz questions"""
         if not self.api_key:
             return None, "no_api_key"
         
         try:
             prompt = self._build_prompt(notes, num_questions, question_type, difficulty)
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
+            response = self.client.chat.completions.create(
+                model=self.model,
                 max_tokens=2000,
                 temperature=0.8,
+                response_format={"type": "json_object"},
                 messages=[{"role": "user", "content": prompt}]
             )
-            
-            if response and response.content:
-                return self._process_response(response.content[0].text, num_questions, question_type, difficulty)
+
+            if response and response.choices:
+                return self._process_response(response.choices[0].message.content, num_questions, question_type, difficulty)
             return None, "empty_response"
-            
-        except anthropic.APIConnectionError:
+
+        except groq.APIConnectionError:
             return None, "api_error"
-        except anthropic.RateLimitError:
+        except groq.RateLimitError:
             return None, "quota_exceeded"
-        except anthropic.APIStatusError as e:
+        except groq.AuthenticationError:
+            return None, "auth_error"
+        except groq.APIStatusError as e:
             return None, "auth_error" if e.status_code == 401 else "api_error"
         except Exception:
             return None, "api_error"
     
     def _build_prompt(self, notes: str, num_questions: int, question_type: str, difficulty: str) -> str:
-        """Build optimized prompt for Claude"""
+        """Build prompt"""
         truncated_notes = notes[:1500]
         
         type_instructions = {
