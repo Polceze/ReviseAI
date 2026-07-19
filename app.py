@@ -158,8 +158,10 @@ if __name__ == '__main__':
             print("✅ Database tables created/verified")
         else:
             print("❌ Failed to initialize database tables")
-            exit(1)
-    host = os.environ.get('HOST', '0.0.0.0')
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
-    app.run(host=host, port=port, debug=debug)
+
+    # In local development
+    if __name__ == '__main__':
+        host = os.environ.get('HOST', '0.0.0.0')
+        port = int(os.environ.get('PORT', 5000))
+        debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+        app.run(host=host, port=port, debug=debug)
