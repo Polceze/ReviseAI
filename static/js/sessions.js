@@ -3,7 +3,7 @@ let currentPage = 1;
 const sessionsPerPage = 5;
 
 async function loadSessions(page = 1) {
-    if (!window.currentUser) {
+    if (!currentUser) {
         const container = document.getElementById('sessions-container');
         if (container) container.innerHTML = '<p class="no-sessions">Please sign in to view your study sessions</p>';
         if (typeof updateProgressChart === 'function') updateProgressChart([], 5);
