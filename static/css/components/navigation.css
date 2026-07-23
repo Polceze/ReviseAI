@@ -285,7 +285,7 @@
   transition: all 0.2s ease;
   border-left: 3px solid transparent;
   font-size: var(--font-size-base);
-  min-height: 52px; /* Slightly reduced from original */
+  min-height: 52px;
   position: relative;
 }
 
@@ -396,31 +396,24 @@ body.has-topbar .auth-topbar {
 }
 
 /* Upgrade link specific styles */
-.upgrade-link {
+/* .upgrade-link {
   background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   color: #1e293b;
   font-weight: 700;
   margin: var(--space-md);
   border-radius: var(--radius-md);
   border-left: 3px solid transparent !important;
-}
+} */
 
-.upgrade-link:hover {
+/* .upgrade-link:hover {
   background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
-}
-
-.sidebar-upgrade {
-  margin-bottom: var(--space-md);
-}
+} */
 
 .sidebar-upgrade .sidebar-link {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
-  border-radius: var(--radius-lg);
-  color: white; 
-  position: relative;
-  overflow: hidden;
+  border: 0.1rem solid var(--secondary-color);
+  margin-bottom: var(--space-md);
 }
 
 .sidebar-item {
