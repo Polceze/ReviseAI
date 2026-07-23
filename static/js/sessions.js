@@ -79,9 +79,15 @@ function renderSessions(sessions) {
                 <div class="session-topic">${escapeHtml(session.title)}</div>
             </div>
             <div class="session-stats">
-                <div class="session-stat">⏱️ ${durationDisplay}</div>
-                <div class="session-stat">📊 ${session.total_questions} questions</div>
-                <div class="session-stat ${scoreClass}">🎯 ${score}%</div>
+                <div class="session-stat">
+                    <i data-lucide="timer" class="nav-icon"></i> ${durationDisplay}
+                </div>
+                <div class="session-stat">
+                    <i data-lucide="bar-chart-3" class="nav-icon"></i> ${session.total_questions} questions
+                </div>
+                <div class="session-stat ${scoreClass}">
+                    <i data-lucide="target" class="nav-icon"></i> ${score}%
+                </div>
             </div>
             <div class="session-actions">
                 <button class="view-session-btn" data-id="${session.id}">View</button>
@@ -101,6 +107,11 @@ function renderSessions(sessions) {
             deleteSession(btn.dataset.id);
         });
     });
+
+    // Render lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
 }
 
 function renderPaginationControls() {

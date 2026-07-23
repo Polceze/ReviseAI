@@ -67,27 +67,22 @@
                     <button class="mobile-close-btn" id="mobile-close-btn" aria-label="Close menu">×</button>
                 </div>
                 
-                <nav class="mobile-nav">
-                    <a href="/" class="mobile-nav-link {% if request.path == '/' %}active{% endif %}">
-                        <span class="nav-icon">🏠</span>
-                        Home
-                    </a>
-                    <a href="/analytics" class="mobile-nav-link {% if request.path == '/analytics' %}active{% endif %}">
-                        <span class="nav-icon">📊</span>
-                        Analytics
-                    </a>
-                    <a href="/sessions" class="mobile-nav-link {% if request.path == '/sessions' %}active{% endif %}">
-                        <span class="nav-icon">📚</span>
-                        My Sessions
-                    </a>
-                    <a href="/donate" class="mobile-nav-link {% if request.path == '/donate' %}active{% endif %}">
-                        <span class="nav-icon">⭐</span>
-                        Donate
-                    </a>
-                    <a href="/contact" class="mobile-nav-link {% if request.path == '/contact' %}active{% endif %}">
-                        <span class="nav-icon">📩</span>
-                        Contact
-                    </a>
+                <nav class="mobile-nav"> 
+                    <a href="/" class="mobile-nav-link {% if request.path == '/' %}active{% endif %}"> 
+                        <i data-lucide="home" class="nav-icon"></i> Home 
+                    </a> 
+                    <a href="/analytics" class="mobile-nav-link {% if request.path == '/analytics' %}active{% endif %}"> 
+                        <i data-lucide="bar-chart-3" class="nav-icon"></i> Analytics 
+                    </a> 
+                    <a href="/sessions" class="mobile-nav-link {% if request.path == '/sessions' %}active{% endif %}"> 
+                        <i data-lucide="book-open" class="nav-icon"></i> My Sessions 
+                    </a> 
+                    <a href="/contact" class="mobile-nav-link {% if request.path == '/contact' %}active{% endif %}"> 
+                        <i data-lucide="mail" class="nav-icon"></i> Contact 
+                    </a> 
+                    <a href="/donate" class="mobile-nav-link {% if request.path == '/donate' %}active{% endif %}"> 
+                        <i data-lucide="heart" class="nav-icon"></i> Donate 
+                    </a> 
                 </nav>
                 
                 <div class="mobile-menu-footer">
@@ -99,34 +94,29 @@
         <!-- Desktop Sidebar -->
         <nav class="sidebar desktop-sidebar" id="desktop-sidebar">
             <ul class="sidebar-nav">
-                <li class="sidebar-upgrade">
-                    <a href="/donate" class="sidebar-link upgrade-link">
-                        <span class="nav-icon">❤️</span>
-                        <span class="sidebar-link-text">Donate</span>
+                <li class="sidebar-item">
+                    <a href="/" class="mobile-nav-link {% if request.path == '/' %}active{% endif %}"> 
+                        <i data-lucide="home" class="nav-icon"></i> Home 
+                    </a> 
+                </li>
+                <li class="sidebar-item">
+                    <a href="/analytics" class="mobile-nav-link {% if request.path == '/analytics' %}active{% endif %}"> 
+                        <i data-lucide="bar-chart-3" class="nav-icon"></i> Analytics 
                     </a>
                 </li>
                 <li class="sidebar-item">
-                    <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
-                        <span class="nav-icon">🏠</span>
-                        <span class="sidebar-link-text">Home</span>
+                    <a href="/sessions" class="mobile-nav-link {% if request.path == '/sessions' %}active{% endif %}"> 
+                        <i data-lucide="book-open" class="nav-icon"></i> My Sessions 
                     </a>
                 </li>
                 <li class="sidebar-item">
-                    <a href="/analytics" class="sidebar-link {% if request.path == '/analytics' %}active{% endif %}">
-                        <span class="nav-icon">📊</span>
-                        <span class="sidebar-link-text">Analytics</span>
+                    <a href="/contact" class="mobile-nav-link {% if request.path == '/contact' %}active{% endif %}"> 
+                        <i data-lucide="mail" class="nav-icon"></i> Contact 
                     </a>
                 </li>
                 <li class="sidebar-item">
-                    <a href="/sessions" class="sidebar-link {% if request.path == '/sessions' %}active{% endif %}">
-                        <span class="nav-icon">📚</span>
-                        <span class="sidebar-link-text">My Sessions</span>
-                    </a>
-                </li>
-                <li class="sidebar-item">
-                    <a href="/contact" class="sidebar-link {% if request.path == '/contact' %}active{% endif %}">
-                        <span class="nav-icon">📩</span>
-                        <span class="sidebar-link-text">Contact</span>
+                    <a href="/donate" class="mobile-nav-link {% if request.path == '/donate' %}active{% endif %}"> 
+                        <i data-lucide="heart" class="nav-icon"></i> Donate 
                     </a>
                 </li>
             </ul>
@@ -267,6 +257,9 @@
                 </div>
             </div>
         </div>
-
+        <script src="https://unpkg.com/lucide@latest"></script>
+        <script>
+            lucide.createIcons();
+        </script>
     </body>
 </html>
